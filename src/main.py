@@ -8,6 +8,7 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+
 # Dependency
 def get_db():
     db = SessionLocal()
@@ -20,19 +21,19 @@ def get_db():
 @app.post("/user/register")
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
-    
+
     if db_user is not None:
         raise HTTPException(status_code=400, detail="Email already registered")
-   
+
     db_user = crud.create_user(db, user)
-    
+
     return {"id": db_user.id}
 
 
 @app.post("/user/login")
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
-    
+
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -40,5 +41,5 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
     if db_user.password != hashed_password:
         raise HTTPException(status_code=404, detail="Verify your credentials")
-    
+
     return {"token": db_user.id}
