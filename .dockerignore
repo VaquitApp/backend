@@ -1,0 +1,17 @@
+.github
+.gitignore
+.stignore
+.vscode
+venv
+**/__pycache__
+.pytest_cache
+.mypy_cache
+
+k8s
+README.md
+okteto.yml
+.stignore
+pytest.ini
+
+*.db
+Makefile
