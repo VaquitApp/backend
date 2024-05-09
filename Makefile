@@ -9,11 +9,9 @@ format:
 lint:
 	poetry run flake8 src
 
-clean-db:
-	rm sql_app.db 2> /dev/null || true
-
-test: clean-db
+test:
+	rm test.db 2> /dev/null || true
 	poetry run pytest -sv .
 
 run: install
-	poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --lifespan on
+	poetry run uvicorn src.main:app --host localhost --port 8000 --reload
