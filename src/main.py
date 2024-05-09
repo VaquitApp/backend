@@ -6,8 +6,6 @@ import hashlib
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
-
 
 # Dependency
 def get_db():
@@ -16,6 +14,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+app = FastAPI(dependencies=[Depends(get_db)])
 
 
 @app.post("/user/register")
