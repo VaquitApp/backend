@@ -41,6 +41,7 @@ app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
+
 ################################################
 # REGISTRATION
 ################################################

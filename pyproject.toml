@@ -9,7 +9,7 @@ packages = [{include = "src"}]
 
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 fastapi = "^0.111.0"
 sqlalchemy = "^2.0.30"
 uvicorn = "^0.29.0"
