@@ -14,3 +14,13 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
+    db_group = models.Group(
+        owner_id=user_id, name=group.name, description=group.description
+    )
+    db.add(db_group)
+    db.commit()
+    db.refresh(db_group)
+    return db_group

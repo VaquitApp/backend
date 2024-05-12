@@ -37,6 +37,16 @@ def set_up_db():
     Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture()
+def some_user_id(set_up_db):
+    response = client.post(
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
+    )
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
 app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
@@ -52,7 +62,7 @@ def test_register_a_user(set_up_db):
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert "id" in response.json()
 
 
@@ -62,7 +72,7 @@ def test_register_a_user_with_an_email_already_used(set_up_db):
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
-    assert first_response.status_code == 200
+    assert first_response.status_code == 201
     assert "id" in first_response.json()
 
     second_response = client.post(
@@ -84,7 +94,7 @@ def test_successful_login(set_up_db):
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
-    assert first_response.status_code == 200
+    assert first_response.status_code == 201
     assert "id" in first_response.json()
 
     second_response = client.post(
@@ -92,7 +102,7 @@ def test_successful_login(set_up_db):
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
-    assert second_response.status_code == 200
+    assert second_response.status_code == 201
     assert "token" in second_response.json()
 
 
@@ -102,7 +112,7 @@ def test_login_with_wrong_password(set_up_db):
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
-    assert first_response.status_code == 200
+    assert first_response.status_code == 201
     assert "id" in first_response.json()
 
     second_response = client.post(
@@ -120,7 +130,7 @@ def test_login_with_wrong_email(set_up_db):
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
-    assert first_response.status_code == 200
+    assert first_response.status_code == 201
     assert "id" in first_response.json()
 
     second_response = client.post(
@@ -133,3 +143,21 @@ def test_login_with_wrong_email(set_up_db):
 
     assert second_response.status_code == 404
     assert "token" not in second_response.json()
+
+
+################################################
+# GROUPS
+################################################
+
+
+def test_create_group(set_up_db, some_user_id: int):
+    first_response = client.post(
+        url="/group",
+        json={"name": "grupo 1", "description": "really long description 1234"},
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert first_response.status_code == 201
+    response_body = first_response.json()
+    assert "id" in response_body
+    assert response_body["owner_id"] == some_user_id
