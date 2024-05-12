@@ -71,3 +71,8 @@ def login(user: schemas.UserLogin, db: DbDependency):
 @app.post("/group", status_code=HTTPStatus.CREATED)
 def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
     return crud.create_group(db, group, user.id)
+
+
+@app.get("/group")
+def create_group(db: DbDependency, user: UserDependency):
+    return crud.get_groups_by_owner_id(db, user.id)

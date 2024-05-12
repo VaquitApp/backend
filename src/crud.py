@@ -28,3 +28,12 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
     db.commit()
     db.refresh(db_group)
     return db_group
+
+
+def get_groups_by_owner_id(db: Session, owner_id: int):
+    return (
+        db.query(models.Group)
+        .filter(models.Group.owner_id == owner_id)
+        .limit(100)
+        .all()
+    )

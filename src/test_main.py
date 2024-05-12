@@ -145,17 +145,24 @@ def test_login_with_wrong_email(client: TestClient):
 ################################################
 
 
-def test_create_group(client: TestClient, some_user_id: int):
-    first_response = client.post(
+@pytest.fixture()
+def some_group(client: TestClient, some_user_id: int):
+    response = client.post(
         url="/group",
         json={"name": "grupo 1", "description": "really long description 1234"},
         headers={"x-user": str(some_user_id)},
     )
 
-    assert first_response.status_code == HTTPStatus.CREATED
-    response_body = first_response.json()
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
     assert "id" in response_body
     assert response_body["owner_id"] == some_user_id
+    return response_body
+
+
+def test_create_group(client: TestClient, some_group: int):
+    # NOTE: test is inside fixture
+    pass
 
 
 def test_create_group_for_invalid_user(client: TestClient):
@@ -166,3 +173,15 @@ def test_create_group_for_invalid_user(client: TestClient):
     )
 
     assert first_response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_get_newly_created_group(
+    client: TestClient, some_user_id: int, some_group: int
+):
+    response = client.get(
+        url="/group",
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == [some_group]
