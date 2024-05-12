@@ -34,6 +34,10 @@ app = FastAPI(dependencies=[Depends(get_db)])
 
 UserDependency = Annotated[models.User, Depends(get_user)]
 
+################################################
+# USERS
+################################################
+
 
 @app.post("/user/register", status_code=HTTPStatus.CREATED)
 def create_user(user: schemas.UserCreate, db: DbDependency):
@@ -68,6 +72,11 @@ def login(user: schemas.UserLogin, db: DbDependency):
     return {"token": db_user.id}
 
 
+################################################
+# GROUPS
+################################################
+
+
 @app.post("/group", status_code=HTTPStatus.CREATED)
 def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
     return crud.create_group(db, group, user.id)
@@ -76,3 +85,18 @@ def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDepende
 @app.get("/group")
 def list_groups(db: DbDependency, user: UserDependency):
     return crud.get_groups_by_owner_id(db, user.id)
+
+
+################################################
+# SPENDINGS
+################################################
+
+
+@app.post("/spending", status_code=HTTPStatus.CREATED)
+def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
+    return crud.create_spending(db, group, user.id)
+
+
+@app.get("/spending")
+def list_groups(db: DbDependency, user: UserDependency):
+    return crud.get_spendings_by_owner_id(db, user.id)
