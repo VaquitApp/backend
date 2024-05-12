@@ -74,5 +74,5 @@ def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDepende
 
 
 @app.get("/group")
-def create_group(db: DbDependency, user: UserDependency):
+def list_groups(db: DbDependency, user: UserDependency):
     return crud.get_groups_by_owner_id(db, user.id)
