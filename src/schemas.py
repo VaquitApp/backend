@@ -19,13 +19,13 @@ class User(UserBase):
 
 class GroupBase(BaseModel):
     name: str
+    description: str
 
 
 class GroupCreate(GroupBase):
-    description: str
+    pass
 
 
 class Group(GroupBase):
     id: int
     owner_id: int
-    description: str
