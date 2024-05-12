@@ -156,3 +156,13 @@ def test_create_group(client: TestClient, some_user_id: int):
     response_body = first_response.json()
     assert "id" in response_body
     assert response_body["owner_id"] == some_user_id
+
+
+def test_create_group_for_invalid_user(client: TestClient):
+    first_response = client.post(
+        url="/group",
+        json={"name": "grupo 1", "description": "really long description 1234"},
+        headers={"x-user": "5636262"},
+    )
+
+    assert first_response.status_code == HTTPStatus.UNAUTHORIZED

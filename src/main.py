@@ -17,14 +17,22 @@ def get_db():
         db.close()
 
 
-def get_user(x_user: Annotated[int | None, Header()]) -> int:
-    return x_user
+DbDependency = Annotated[Session, Depends(get_db)]
+
+
+def get_user(db: DbDependency, x_user: Annotated[int, Header()]) -> models.User:
+    db_user = crud.get_user_by_id(db, x_user)
+    if db_user is None:
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail="Necesita loguearse para continuar",
+        )
+    return db_user
 
 
 app = FastAPI(dependencies=[Depends(get_db)])
 
-DbDependency = Annotated[Session, Depends(get_db)]
-UserDependency = Annotated[int, Depends(get_user)]
+UserDependency = Annotated[models.User, Depends(get_user)]
 
 
 @app.post("/user/register", status_code=HTTPStatus.CREATED)
@@ -61,5 +69,5 @@ def login(user: schemas.UserLogin, db: DbDependency):
 
 
 @app.post("/group", status_code=HTTPStatus.CREATED)
-def create_group(group: schemas.GroupCreate, db: DbDependency, user_id: UserDependency):
-    return crud.create_group(db, group, user_id)
+def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
+    return crud.create_group(db, group, user.id)
