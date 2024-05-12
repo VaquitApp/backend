@@ -36,90 +36,100 @@ def set_up_db():
     yield
     Base.metadata.drop_all(bind=engine)
 
+
 app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
+
 
 ################################################
 # REGISTRATION
 ################################################
 
+
 def test_register_a_user(set_up_db):
     response = client.post(
-        url = "/user/register",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
     assert response.status_code == 200
-    assert 'id' in response.json()
+    assert "id" in response.json()
+
 
 def test_register_a_user_with_an_email_already_used(set_up_db):
     first_response = client.post(
-        url = "/user/register",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
-    
+
     assert first_response.status_code == 200
-    assert 'id' in first_response.json()
-    
+    assert "id" in first_response.json()
+
     second_response = client.post(
-        url = "/user/register",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
     assert second_response.status_code == 400
+
 
 ################################################
 # LOGIN
 ################################################
 
+
 def test_successful_login(set_up_db):
     first_response = client.post(
-        url = "/user/register",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
-    
+
     assert first_response.status_code == 200
-    assert 'id' in first_response.json()
+    assert "id" in first_response.json()
 
     second_response = client.post(
-        url = "/user/login",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/login",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
 
     assert second_response.status_code == 200
-    assert 'token' in second_response.json()
+    assert "token" in second_response.json()
 
 
 def test_login_with_wrong_password(set_up_db):
     first_response = client.post(
-        url = "/user/register",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
-    
+
     assert first_response.status_code == 200
-    assert 'id' in first_response.json()
+    assert "id" in first_response.json()
 
     second_response = client.post(
-        url = "/user/login",
-        json = {"email":"example@example.com", "password":"a_wrong_password"},
+        url="/user/login",
+        json={"email": "example@example.com", "password": "a_wrong_password"},
     )
 
     assert second_response.status_code == 404
-    assert 'token' not in second_response.json()
+    assert "token" not in second_response.json()
+
 
 def test_login_with_wrong_email(set_up_db):
     first_response = client.post(
-        url = "/user/register",
-        json = {"email":"example@example.com", "password":"my_ultra_secret_password"},
+        url="/user/register",
+        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
     )
-    
+
     assert first_response.status_code == 200
-    assert 'id' in first_response.json()
+    assert "id" in first_response.json()
 
     second_response = client.post(
-        url = "/user/login",
-        json = {"email":"example@a_wrong_domain.com", "password":"my_ultra_secret_password"},
+        url="/user/login",
+        json={
+            "email": "example@a_wrong_domain.com",
+            "password": "my_ultra_secret_password",
+        },
     )
 
     assert second_response.status_code == 404
-    assert 'token' not in second_response.json()
+    assert "token" not in second_response.json()
