@@ -32,7 +32,9 @@ def create_user(user: schemas.UserCreate, db: DbDependency):
     db_user = crud.get_user_by_email(db, email=user.email)
 
     if db_user is not None:
-        raise HTTPException(status_code=400, detail="Email ya existente")
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Email ya existente"
+        )
 
     db_user = crud.create_user(db, user)
 
@@ -44,12 +46,16 @@ def login(user: schemas.UserLogin, db: DbDependency):
     db_user = crud.get_user_by_email(db, email=user.email)
 
     if db_user is None:
-        raise HTTPException(status_code=404, detail="Usuario no existe")
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Usuario no existe"
+        )
 
     hashed_password = hashlib.sha256(user.password.encode(encoding="utf-8")).hexdigest()
 
     if db_user.password != hashed_password:
-        raise HTTPException(status_code=404, detail="Contraseña incorrecta")
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED, detail="Contraseña incorrecta"
+        )
 
     return {"token": db_user.id}
 
