@@ -5,9 +5,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-
 from .database import Base
 from .main import app, get_db
+
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 
@@ -19,9 +19,6 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-Base.metadata.create_all(bind=engine)
-
-
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -31,14 +28,16 @@ def override_get_db():
 
 
 @pytest.fixture()
-def set_up_db():
+def client():
+    app.dependency_overrides[get_db] = override_get_db
+
     Base.metadata.create_all(bind=engine)
-    yield
+    yield TestClient(app)
     Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture()
-def some_user_id(set_up_db):
+def some_user_id(client: TestClient):
     response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
@@ -47,17 +46,12 @@ def some_user_id(set_up_db):
     return response.json()["id"]
 
 
-app.dependency_overrides[get_db] = override_get_db
-
-client = TestClient(app)
-
-
 ################################################
 # REGISTRATION
 ################################################
 
 
-def test_register_a_user(set_up_db):
+def test_register_a_user(client: TestClient):
     response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
@@ -66,7 +60,7 @@ def test_register_a_user(set_up_db):
     assert "id" in response.json()
 
 
-def test_register_a_user_with_an_email_already_used(set_up_db):
+def test_register_a_user_with_an_email_already_used(client: TestClient):
     first_response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
@@ -88,7 +82,7 @@ def test_register_a_user_with_an_email_already_used(set_up_db):
 ################################################
 
 
-def test_successful_login(set_up_db):
+def test_successful_login(client: TestClient):
     first_response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
@@ -106,7 +100,7 @@ def test_successful_login(set_up_db):
     assert "token" in second_response.json()
 
 
-def test_login_with_wrong_password(set_up_db):
+def test_login_with_wrong_password(client: TestClient):
     first_response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
@@ -124,7 +118,7 @@ def test_login_with_wrong_password(set_up_db):
     assert "token" not in second_response.json()
 
 
-def test_login_with_wrong_email(set_up_db):
+def test_login_with_wrong_email(client: TestClient):
     first_response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
@@ -150,7 +144,7 @@ def test_login_with_wrong_email(set_up_db):
 ################################################
 
 
-def test_create_group(set_up_db, some_user_id: int):
+def test_create_group(client: TestClient, some_user_id: int):
     first_response = client.post(
         url="/group",
         json={"name": "grupo 1", "description": "really long description 1234"},
