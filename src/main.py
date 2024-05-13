@@ -93,10 +93,12 @@ def list_groups(db: DbDependency, user: UserDependency):
 
 
 @app.post("/spending", status_code=HTTPStatus.CREATED)
-def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
-    return crud.create_spending(db, group, user.id)
+def create_spending(
+    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
+):
+    return crud.create_spending(db, spending, user.id)
 
 
-@app.get("/spending")
-def list_groups(db: DbDependency, user: UserDependency):
-    return crud.get_spendings_by_owner_id(db, user.id)
+# @app.get("/spending")
+# def list_spendings(db: DbDependency, user: UserDependency):
+#     return crud.get_spendings_by_owner_id(db, user.id)

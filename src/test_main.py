@@ -1,3 +1,4 @@
+import datetime
 from http import HTTPStatus
 from fastapi.testclient import TestClient
 import pytest
@@ -179,3 +180,34 @@ def test_get_newly_created_group(
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == [some_group]
+
+
+################################################
+# SPENDINGS
+################################################
+
+
+def test_create_new_spending(client: TestClient, some_user_id: int):
+    response = client.post(
+        url="/spending",
+        json={"amount": 500, "description": "bought some féca", "date": "2021-01-01"},
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["owner_id"] == some_user_id
+
+
+def test_create_new_spending_with_default_date(client: TestClient, some_user_id: int):
+    response = client.post(
+        url="/spending",
+        json={"amount": 500, "description": "bought some féca"},
+        headers={"x-user": str(some_user_id)},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["owner_id"] == some_user_id
+    assert datetime.datetime.fromisoformat(response_body["date"])
