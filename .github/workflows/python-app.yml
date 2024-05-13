@@ -9,12 +9,31 @@ on:
   pull_request:
     branches: ["main", "develop"]
 
-permissions:
-  contents: read
+env:
+  DB_NAME: db
+  DB_USER: user
+  DB_PASSWORD: postgres
+  DB_HOST: localhost
+  DB_PORT: 5432
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_DB: ${{ env.DB_NAME }}
+          POSTGRES_USER: ${{ env.DB_USER }}
+          POSTGRES_PASSWORD: ${{ env.DB_PASSWORD }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
       - name: Checkout

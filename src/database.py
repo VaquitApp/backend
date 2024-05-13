@@ -1,3 +1,4 @@
+from logging import info
 import os
 from sqlalchemy import create_engine, URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -16,6 +17,7 @@ DB_PORT = os.environ.get("DB_PORT")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_NAME}"
 
 if DB_HOST is not None:
+    info("Using PostgreSQL database")
     SQLALCHEMY_DATABASE_URL = URL.create(
         "postgresql",
         username=DB_USER,
