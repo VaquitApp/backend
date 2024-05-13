@@ -99,6 +99,6 @@ def create_spending(
     return crud.create_spending(db, spending, user.id)
 
 
-# @app.get("/spending")
-# def list_spendings(db: DbDependency, user: UserDependency):
-#     return crud.get_spendings_by_owner_id(db, user.id)
+@app.get("/spending")
+def list_spendings(db: DbDependency, user: UserDependency):
+    return crud.get_spendings_by_owner_id(db, user.id)

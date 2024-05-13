@@ -211,3 +211,21 @@ def test_create_new_spending_with_default_date(client: TestClient, some_user_id:
     assert "id" in response_body
     assert response_body["owner_id"] == some_user_id
     assert datetime.datetime.fromisoformat(response_body["date"])
+
+
+def test_get_spendings(client: TestClient, some_user_id: int):
+    response = client.post(
+        url="/spending",
+        json={"amount": 500, "description": "bought some féca", "date": "2021-01-01"},
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    spending = response.json()
+
+    response = client.get(
+        url="/spending",
+        headers={"x-user": str(some_user_id)},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == [spending]
