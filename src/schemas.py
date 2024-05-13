@@ -15,3 +15,17 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
+
+
+class GroupBase(BaseModel):
+    name: str
+    description: str
+
+
+class GroupCreate(GroupBase):
+    pass
+
+
+class Group(GroupBase):
+    id: int
+    owner_id: int
