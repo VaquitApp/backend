@@ -52,6 +52,7 @@ class SpendingBase(BaseModel):
     amount: int
     description: str
     date: Optional[datetime.date] = Field(None)
+    group_id: int
 
 
 class SpendingCreate(SpendingBase):

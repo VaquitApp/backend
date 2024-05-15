@@ -106,9 +106,26 @@ def list_groups(db: DbDependency, user: UserDependency, group_id: int):
 def create_spending(
     spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
 ):
+    # TODO: check group exists
     return crud.create_spending(db, spending, user.id)
 
 
 @app.get("/spending")
-def list_spendings(db: DbDependency, user: UserDependency):
-    return crud.get_spendings_by_owner_id(db, user.id)
+def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    # TODO: allow members to see spendings
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.get_spendings_by_group_id(db, group_id)
+
+
+@app.get("/group/{group_id}/spending")
+def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.get_spendings_by_group_id(db, group_id)

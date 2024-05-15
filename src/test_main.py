@@ -171,7 +171,7 @@ def test_get_created_group(
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == some_group.model_dump()
+    assert schemas.Group(**response.json()) == some_group
 
 
 def test_create_group_for_invalid_user(client: TestClient):
@@ -193,7 +193,8 @@ def test_get_newly_created_group(
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == [some_group.model_dump()]
+    assert len(response.json()) == 1
+    assert schemas.Group(**response.json()[0]) == some_group
 
 
 ################################################
@@ -201,45 +202,58 @@ def test_get_newly_created_group(
 ################################################
 
 
-def test_create_new_spending(client: TestClient, some_user_id: int):
+@pytest.fixture
+def some_spending(client: TestClient, some_user_id: int, some_group: schemas.Group):
     response = client.post(
         url="/spending",
-        json={"amount": 500, "description": "bought some féca", "date": "2021-01-01"},
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "date": "2021-01-01",
+            "group_id": some_group.id,
+        },
         headers={"x-user": str(some_user_id)},
     )
 
     assert response.status_code == HTTPStatus.CREATED
     response_body = response.json()
     assert "id" in response_body
-    assert response_body["owner_id"] == some_user_id
+    assert response_body["group_id"] == some_group.id
+    return schemas.Spending(**response_body)
 
 
-def test_create_new_spending_with_default_date(client: TestClient, some_user_id: int):
+def test_create_new_spending(client: TestClient, some_spending: schemas.Spending):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_create_new_spending_with_default_date(
+    client: TestClient, some_user_id: int, some_group: schemas.Group
+):
     response = client.post(
         url="/spending",
-        json={"amount": 500, "description": "bought some féca"},
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+        },
         headers={"x-user": str(some_user_id)},
     )
     assert response.status_code == HTTPStatus.CREATED
     response_body = response.json()
     assert "id" in response_body
-    assert response_body["owner_id"] == some_user_id
+    assert response_body["group_id"] == some_group.id
     assert datetime.datetime.fromisoformat(response_body["date"])
 
 
-def test_get_spendings(client: TestClient, some_user_id: int):
-    response = client.post(
-        url="/spending",
-        json={"amount": 500, "description": "bought some féca", "date": "2021-01-01"},
-        headers={"x-user": str(some_user_id)},
-    )
-
-    assert response.status_code == HTTPStatus.CREATED
-    spending = response.json()
-
+def test_get_spendings(
+    client: TestClient, some_user_id: int, some_spending: schemas.Spending
+):
     response = client.get(
         url="/spending",
+        params={"group_id": some_spending.group_id},
         headers={"x-user": str(some_user_id)},
     )
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == [spending]
+    assert len(response.json()) == 1
+    assert schemas.Spending(**response.json()[0]) == some_spending

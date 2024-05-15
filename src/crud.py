@@ -66,10 +66,10 @@ def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int)
     return db_spending
 
 
-def get_spendings_by_owner_id(db: Session, owner_id: int):
+def get_spendings_by_group_id(db: Session, group_id: int):
     return (
         db.query(models.Spending)
-        .filter(models.Spending.owner_id == owner_id)
+        .filter(models.Spending.group_id == group_id)
         .limit(100)
         .all()
     )

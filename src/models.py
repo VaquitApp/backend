@@ -27,6 +27,7 @@ class Spending(Base):
 
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
     amount = Column(Integer)
     description = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
