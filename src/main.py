@@ -34,6 +34,10 @@ app = FastAPI(dependencies=[Depends(get_db)])
 
 UserDependency = Annotated[models.User, Depends(get_user)]
 
+################################################
+# USERS
+################################################
+
 
 @app.post("/user/register", status_code=HTTPStatus.CREATED)
 def create_user(user: schemas.UserCreate, db: DbDependency):
@@ -68,6 +72,11 @@ def login(user: schemas.UserLogin, db: DbDependency):
     return {"token": db_user.id}
 
 
+################################################
+# GROUPS
+################################################
+
+
 @app.post("/group", status_code=HTTPStatus.CREATED)
 def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
     return crud.create_group(db, group, user.id)
@@ -86,3 +95,37 @@ def list_groups(db: DbDependency, user: UserDependency, group_id: int):
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return group
+
+
+################################################
+# SPENDINGS
+################################################
+
+
+@app.post("/spending", status_code=HTTPStatus.CREATED)
+def create_spending(
+    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
+):
+    # TODO: check group exists
+    return crud.create_spending(db, spending, user.id)
+
+
+@app.get("/spending")
+def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    # TODO: allow members to see spendings
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.get_spendings_by_group_id(db, group_id)
+
+
+@app.get("/group/{group_id}/spending")
+def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.get_spendings_by_group_id(db, group_id)

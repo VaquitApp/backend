@@ -1,5 +1,6 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from datetime import datetime
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
 
@@ -19,3 +20,14 @@ class Group(Base):
     owner_id = Column(ForeignKey("users.id"))
     name = Column(String)
     description = Column(String)
+
+
+class Spending(Base):
+    __tablename__ = "spendings"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
