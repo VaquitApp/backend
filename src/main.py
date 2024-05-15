@@ -76,3 +76,13 @@ def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDepende
 @app.get("/group")
 def list_groups(db: DbDependency, user: UserDependency):
     return crud.get_groups_by_owner_id(db, user.id)
+
+
+@app.get("/group/{group_id}")
+def list_groups(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return group
