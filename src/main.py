@@ -43,8 +43,9 @@ def create_user(user: schemas.UserCreate, db: DbDependency):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST, detail="Email ya existente"
         )
-
     db_user = crud.create_user(db, user)
+    group = schemas.GroupCreate(name=user.email + "'s Personal Group", description="Personal group of user")
+    crud.create_group(db=db, group=group)
 
     return {"id": db_user.id}
 
