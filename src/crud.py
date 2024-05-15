@@ -49,6 +49,10 @@ def get_groups_by_owner_id(db: Session, owner_id: int):
     )
 
 
+def get_group_by_id(db: Session, group_id: int):
+    return db.query(models.Group).filter(models.Group.id == group_id).first()
+
+
 ################################################
 # SPENDINGS
 ################################################

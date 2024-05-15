@@ -7,8 +7,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from .database import Base, SQLALCHEMY_DATABASE_URL
+
 from .main import app, get_db
+from .database import Base, SQLALCHEMY_DATABASE_URL
+from . import schemas
 
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, poolclass=StaticPool)
@@ -152,12 +154,24 @@ def some_group(client: TestClient, some_user_id: int):
     response_body = response.json()
     assert "id" in response_body
     assert response_body["owner_id"] == some_user_id
-    return response_body
+    return schemas.Group(**response_body)
 
 
-def test_create_group(client: TestClient, some_group: int):
+def test_create_group(client: TestClient, some_group: schemas.Group):
     # NOTE: test is inside fixture
     pass
+
+
+def test_get_created_group(
+    client: TestClient, some_group: schemas.Group, some_user_id: int
+):
+    response = client.get(
+        url=f"/group/{some_group.id}",
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == some_group.model_dump()
 
 
 def test_create_group_for_invalid_user(client: TestClient):
@@ -171,7 +185,7 @@ def test_create_group_for_invalid_user(client: TestClient):
 
 
 def test_get_newly_created_group(
-    client: TestClient, some_user_id: int, some_group: int
+    client: TestClient, some_user_id: int, some_group: schemas.Group
 ):
     response = client.get(
         url="/group",
@@ -179,7 +193,7 @@ def test_get_newly_created_group(
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == [some_group]
+    assert response.json() == [some_group.model_dump()]
 
 
 ################################################
