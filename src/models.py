@@ -13,6 +13,13 @@ class User(Base):
     password = Column(String)
 
 
+class Category(Base):
+    __tablename__ = "categories"
+
+    name = Column(String, primary_key=True)
+    description = Column(String)
+    group_id = Column(ForeignKey("groups.id"), primary_key=True)
+
 class Group(Base):
     __tablename__ = "groups"
 

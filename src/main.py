@@ -73,6 +73,35 @@ def login(user: schemas.UserLogin, db: DbDependency):
 
 
 ################################################
+# CATEGORIES
+################################################
+
+
+@app.post("/category", status_code=HTTPStatus.CREATED)
+def create_category(category: schemas.CategoryCreate, db: DbDependency):
+    group = crud.get_group_by_id(db, category.group_id)
+    if group is None :
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.create_category(db, category)
+
+
+@app.get("/category/{group_id}")
+def list_group_categories(db: DbDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    
+    if group is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+    categories = crud.get_categories_by_group_id(db, group_id)
+    
+    return categories
+
+
+################################################
 # GROUPS
 ################################################
 
@@ -91,7 +120,7 @@ def list_groups(db: DbDependency, user: UserDependency):
 def list_groups(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
     if group is None or group.owner_id != user.id:
-        return HTTPException(
+        raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return group
@@ -115,7 +144,7 @@ def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
     # TODO: allow members to see spendings
     if group is None or group.owner_id != user.id:
-        return HTTPException(
+        raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return crud.get_spendings_by_group_id(db, group_id)
@@ -125,7 +154,7 @@ def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
 def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
     if group is None or group.owner_id != user.id:
-        return HTTPException(
+        raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return crud.get_spendings_by_group_id(db, group_id)
