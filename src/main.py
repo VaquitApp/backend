@@ -129,3 +129,38 @@ def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return crud.get_spendings_by_group_id(db, group_id)
+
+
+################################################
+# BUDGETS
+################################################
+
+
+@app.post("/budget", status_code=HTTPStatus.CREATED)
+def create_budget(
+    spending: schemas.BudgetCreate, db: DbDependency, user: UserDependency
+):
+    # TODO: check group exists
+    return crud.create_budget(db, spending)
+
+
+@app.get("/budget/{budget_id}")
+def get_budget(db: DbDependency, user: UserDependency, budget_id: int):
+    return crud.get_budget_by_id(db, budget_id)
+
+
+@app.put("/budget/{budget_id}")
+def put_budget(
+    db: DbDependency, user: UserDependency, budget_id: int, budget: schemas.BudgetPut
+):
+    return crud.put_budget(db, budget_id, budget)
+
+
+@app.get("/group/{group_id}/budget")
+def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.get_budgets_by_group_id(db, group_id)
