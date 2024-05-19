@@ -24,6 +24,10 @@ class User(UserBase):
     id: int
 
 
+class UserCredentials(User):
+    jwt: str
+
+
 ################################################
 # GROUPS
 ################################################
