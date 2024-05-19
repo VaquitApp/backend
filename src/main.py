@@ -117,6 +117,16 @@ def list_group_categories(db: DbDependency, group_id: int):
 def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
     return crud.create_group(db, group, user.id)
 
+@app.put("/group", status_code=HTTPStatus.OK)
+def update_group(group: schemas.GroupUpdate, db: DbDependency, user: UserDependency):
+    group_to_update = crud.get_group_by_id(db, group.group_id)
+    
+    if group_to_update is None or group_to_update.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+    return crud.update_group(db, group)
 
 @app.get("/group")
 def list_groups(db: DbDependency, user: UserDependency):

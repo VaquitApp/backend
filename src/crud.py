@@ -60,6 +60,14 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
     return db_group
 
 
+def update_group(db: Session, group: schemas.GroupUpdate):
+    updated_group = db.query(models.Group).filter(models.Group.id == group.group_id).first()
+    updated_group.name = group.name
+    updated_group.description = group.description
+    db.commit()
+    db.refresh
+    return group
+
 def get_groups_by_owner_id(db: Session, owner_id: int):
     return (
         db.query(models.Group)

@@ -58,10 +58,11 @@ class GroupBase(BaseModel):
     name: str
     description: str
 
-
 class GroupCreate(GroupBase):
     pass
 
+class GroupUpdate(GroupCreate):
+    group_id: int
 
 class Group(GroupBase):
     id: int
