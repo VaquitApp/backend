@@ -25,6 +25,26 @@ class User(UserBase):
 
 
 ################################################
+# CATEGORIES
+################################################
+
+
+class CategoryBase(BaseModel):
+    name: str
+    description: str
+    group_id: str
+    strategy: str
+
+
+class CategoryCreate(CategoryBase):
+    pass
+
+
+class Category(CategoryBase):
+    pass
+    
+
+################################################
 # GROUPS
 ################################################
 

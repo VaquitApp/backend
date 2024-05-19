@@ -24,6 +24,25 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.refresh(db_user)
     return db_user
 
+################################################
+# CATEGORY
+################################################
+
+def create_category(db: Session, category: schemas.CategoryCreate):  
+    new_category = models.Category(name = category.name, description = category.description, group_id = category.group_id)
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+    return new_category
+
+
+def get_categories_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.Category)
+        .filter(models.Category.group_id == group_id)
+        .all()
+    )
+
 
 ################################################
 # GROUPS
