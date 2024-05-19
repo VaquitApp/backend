@@ -11,8 +11,8 @@ JWT_SECRET = "myjwtsecret"
 DEFAULT_EXPIRY = 30 * 24 * 60 * 60  # 30 days
 
 
-def compute_password_hash(password: str) -> bytes:
-    return hashlib.sha256(password.encode(encoding="utf-8")).digest()
+def compute_password_hash(password: str) -> str:
+    return hashlib.sha256(password.encode(encoding="utf-8")).hexdigest()
 
 
 def valid_password(password: str, hashed_password: bytes) -> str:
