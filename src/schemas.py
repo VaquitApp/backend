@@ -1,4 +1,5 @@
 import datetime
+from enum import StrEnum, auto
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -42,7 +43,7 @@ class CategoryCreate(CategoryBase):
 
 class Category(CategoryBase):
     pass
-    
+
 
 ################################################
 # GROUPS
@@ -82,3 +83,26 @@ class SpendingCreate(SpendingBase):
 class Spending(SpendingBase):
     id: int
     owner_id: int
+
+
+################################################
+# INVITES
+################################################
+
+
+class InviteStatus(StrEnum):
+    PENDING = auto()
+    ACCEPTED = auto()
+    EXPIRED = auto()
+
+
+class InviteBase(BaseModel):
+    date: datetime.date
+    status: InviteStatus
+
+
+class Invite(InviteBase):
+    id: int
+    sender_id: int
+    receiver_id: int
+    group_id: int

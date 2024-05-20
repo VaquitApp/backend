@@ -80,7 +80,7 @@ def login(user: schemas.UserLogin, db: DbDependency):
 @app.post("/category", status_code=HTTPStatus.CREATED)
 def create_category(category: schemas.CategoryCreate, db: DbDependency):
     group = crud.get_group_by_id(db, category.group_id)
-    if group is None :
+    if group is None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
@@ -90,14 +90,14 @@ def create_category(category: schemas.CategoryCreate, db: DbDependency):
 @app.get("/category/{group_id}")
 def list_group_categories(db: DbDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    
+
     if group is None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
 
     categories = crud.get_categories_by_group_id(db, group_id)
-    
+
     return categories
 
 
