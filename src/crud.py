@@ -92,3 +92,41 @@ def get_spendings_by_group_id(db: Session, group_id: int):
         .limit(100)
         .all()
     )
+
+
+################################################
+# BUDGETS
+################################################
+
+
+def create_budget(db: Session, budget: schemas.BudgetCreate):
+    db_budget = models.Budget(**dict(budget))
+    db.add(db_budget)
+    db.commit()
+    db.refresh(db_budget)
+    return db_budget
+
+
+def get_budget_by_id(db: Session, budget_id: int):
+    return db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+
+
+def put_budget(db: Session, budget_id: int, budget: schemas.BudgetPut):
+    db_budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+    db_budget.amount = budget.amount
+    db_budget.description = budget.description
+    db_budget.start_date = budget.start_date
+    db_budget.end_date = budget.end_date
+    db_budget.category_id = budget.category_id
+    db.commit()
+    db.refresh(db_budget)
+    return db_budget
+
+
+def get_budgets_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.Budget)
+        .filter(models.Budget.group_id == group_id)
+        .limit(100)
+        .all()
+    )

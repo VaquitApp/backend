@@ -257,3 +257,83 @@ def test_get_spendings(
     assert response.status_code == HTTPStatus.OK
     assert len(response.json()) == 1
     assert schemas.Spending(**response.json()[0]) == some_spending
+
+
+################################################
+# BUDGETS
+################################################
+
+
+@pytest.fixture
+def some_budget(client: TestClient, some_user_id: int, some_group: schemas.Group):
+    response = client.post(
+        url="/budget",
+        json={
+            "amount": 500,
+            "description": "café",
+            "start_date": "2021-01-01",
+            "end_date": "2021-02-01",
+            "group_id": some_group.id,
+            "category_id": 1,
+        },
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    return schemas.Budget(**response_body)
+
+
+def test_create_new_budget(client: TestClient, some_budget: schemas.Budget):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_get_budget(client: TestClient, some_user_id: int, some_budget: schemas.Budget):
+    response = client.get(
+        url=f"/budget/{some_budget.id}",
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert schemas.Budget(**response.json()) == some_budget
+
+
+def test_put_budget(client: TestClient, some_user_id: int, some_budget: schemas.Budget):
+    put_body = {
+        "amount": 1000,
+        "description": "some other description",
+        "start_date": "2021-03-01T00:00:00",
+        "end_date": "2021-04-01T00:00:00",
+        "category_id": 2,
+    }
+    response = client.put(
+        url=f"/budget/{some_budget.id}",
+        json=put_body,
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get(
+        url=f"/budget/{some_budget.id}",
+        headers={"x-user": str(some_user_id)},
+    )
+    assert response.status_code == HTTPStatus.OK
+    for k, v in put_body.items():
+        assert response.json()[k] == v
+
+
+def test_get_group_budgets(
+    client: TestClient, some_user_id: int, some_budget: schemas.Budget
+):
+    response = client.get(
+        url=f"/group/{some_budget.group_id}/budget",
+        headers={"x-user": str(some_user_id)},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(response.json()) == 1
+    assert schemas.Budget(**response.json()[0]) == some_budget
