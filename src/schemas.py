@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum, auto
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -113,3 +114,30 @@ class BudgetPut(BudgetBase):
 class Budget(BudgetBase):
     id: int
     group_id: int
+
+
+################################################
+# INVITES
+################################################
+
+
+class InviteStatus(StrEnum):
+    PENDING = auto()
+    ACCEPTED = auto()
+    EXPIRED = auto()
+
+
+class InviteBase(BaseModel):
+    creation_date: Optional[datetime] = Field(None)
+    receiver_id: Optional[int] = Field(None)
+    group_id: int
+
+
+class InviteCreate(InviteBase):
+    receiver_email: str
+
+
+class Invite(InviteBase):
+    id: int
+    sender_id: int
+    status: InviteStatus

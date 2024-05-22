@@ -3,11 +3,16 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Header
 
 from src import crud, models, schemas, auth
+from src.mail import mail_service
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 import hashlib
 
 models.Base.metadata.create_all(bind=engine)
+
+
+def get_mail_sender():
+    return mail_service
 
 
 def get_db():
@@ -35,6 +40,7 @@ def ensure_user(x_user: Annotated[str, Header()]) -> models.User:
 app = FastAPI(dependencies=[Depends(get_db)])
 
 UserDependency = Annotated[models.User, Depends(ensure_user)]
+MailDependency = Annotated[models.Invite, Depends(get_mail_sender)]
 
 ################################################
 # USERS
@@ -261,3 +267,65 @@ def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return crud.get_budgets_by_group_id(db, group_id)
+
+
+################################################
+# INVITES
+################################################
+
+
+@app.get("/invite/{invite_id}")
+def get_invite(db: DbDependency, invite_id: int):
+    invite = crud.get_invite_by_id(db, invite_id)
+    if not invite:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Invitación no existente."
+        )
+    return invite
+
+
+@app.get("/invite")
+def get_invites(db: DbDependency, user: UserDependency):
+    return crud.get_sent_invites_by_user(db, user.id)
+
+
+# TODO: get_pending_invites_to_user()
+
+
+@app.post("/invite", status_code=HTTPStatus.CREATED)
+def invite_user(
+    db: DbDependency,
+    user: UserDependency,
+    mail: MailDependency,
+    invite: schemas.InviteCreate,
+):
+
+    receiver = crud.get_user_by_email(db, invite.receiver_email)
+    if receiver is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="El Usuario a invitar no esta registrado en VaquitApp.",
+        )
+    invite.receiver_id = receiver.id
+
+    target_group = crud.get_group_by_id(db, invite.group_id)
+    if target_group is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente."
+        )
+    elif target_group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail=f"El usuario {user.id} no cuenta con privilegios de invitación en el grupo {target_group.id}.",
+        )
+
+    sent_ok = mail.send(sender=user.email, receiver=receiver.email, group=target_group)
+
+    if sent_ok:
+        return crud.create_invite(db, user.id, invite)
+    else:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Failed to invite user."
+        )
+
+    # TODO: Accept Invite -> Check expiring and etc..
