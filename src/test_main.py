@@ -374,9 +374,6 @@ def test_get_group_budgets(
 # INVITES
 ################################################
 
-# OK CASES TESTS
-
-
 @pytest.fixture
 def some_invite(
     client: TestClient,
