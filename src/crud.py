@@ -40,13 +40,13 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
     return db_group
 
 
-def update_group(db: Session, group: schemas.GroupUpdate):
-    updated_group = db.query(models.Group).filter(models.Group.id == group.group_id).first()
-    updated_group.name = group.name
-    updated_group.description = group.description
+def update_group(db: Session, db_group: models.Group, put_group: schemas.GroupUpdate):
+    db_group.name = put_group.name
+    db_group.description = put_group.description
     db.commit()
     db.refresh
-    return group
+    return db_group
+
 
 def get_groups_by_owner_id(db: Session, owner_id: int):
     return (
