@@ -37,8 +37,8 @@ class ProdMailSender(MailSender):
 
 class LocalMailSender(MailSender):
     def send(self, sender: str, receiver: str, group_name: str) -> bool:
-        warning("LocalMailSender: No email sent. This is a no-op implementation.")
         return True
+
 
 if API_KEY is not None:
     MailService = ProdMailSender()

@@ -128,16 +128,12 @@ class InviteStatus(StrEnum):
 
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
-
-
-class InviteCreate(InviteBase):
-    receiver_email: str
     receiver_id: Optional[int] = Field(None)
     group_id: int
 
 
-class InvitePut(InviteBase):
-    pass
+class InviteCreate(InviteBase):
+    receiver_email: str
 
 
 class Invite(InviteBase):

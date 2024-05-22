@@ -369,7 +369,140 @@ def test_get_group_budgets(
     assert len(response.json()) == 1
     assert schemas.Budget(**response.json()[0]) == some_budget
 
+
 ################################################
 # INVITES
 ################################################
+
+# OK CASES TESTS
+
+
+@pytest.fixture
+def some_invite(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    # Register Receiver User
+    email = "receiver@example.com"
+    response = client.post(
+        url="/user/register",
+        json={"email": email, "password": "my_ultra_secret_password"},
+    )
+    response_body = response.json()
+    receiver_id = response_body["id"]
+    assert response.status_code == HTTPStatus.CREATED
+
+    # Create Invite
+    response = client.post(
+        url="/invite",
+        json={"receiver_email": email, "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+
+    assert "creation_date" in response_body
+    assert response_body["status"] == schemas.InviteStatus.PENDING
+    assert response_body["group_id"] == some_group.id
+    assert response_body["sender_id"] == some_credentials.id
+    assert response_body["receiver_id"] == receiver_id
+
+    return schemas.Invite(**response_body)
+
+
+def test_create_invite(client: TestClient, some_invite: schemas.Invite):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_get_invite_by_id(
+    client: TestClient,
+    some_invite: schemas.Invite,
+):
+    response = client.get(
+        url=f"/invite/{some_invite.id}",
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert schemas.Invite(**response.json()) == some_invite
+
+
+def test_get_all_sent_invites_by_user(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_invite: schemas.Invite,
+):
+    response = client.get(
+        url="/invite",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert len(response.json()) == 1
+    assert schemas.Invite(**response.json()[0]) == some_invite
+
+
+def test_get_invite_by_non_existant_id(client: TestClient):
+    response = client.get(
+        url=f"/invite/12345",
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_send_group_invite_to_non_registered_user(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    response = client.post(
+        url="/invite",
+        json={"receiver_email": "pepe@gmail.com", "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_send_group_invite_non_existant_group(
+    client: TestClient, some_credentials: schemas.UserCredentials
+):
+    response = client.post(
+        url="/invite",
+        json={"receiver_email": some_credentials.email, "group_id": 12345},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_send_group_invite_from_non_group_owner(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+):
+    
+    # Other User
+    email = "example2@example.com"
+    response = client.post(
+        url="/user/register",
+        json={"email": email, "password": "my_ultra_secret_password"},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    other_jwt = response.json()["jwt"]
+
+    # Other Group
+    response = client.post(
+        url="/group",
+        json={"name": "grupo 2", "description": "really long description 1234"},
+        headers={"x-user": other_jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    new_group_id = response.json()["id"]
+
+    # Send Invite With Wrong Owner
+    response = client.post(
+        url="/invite",
+        json={"receiver_email": email, "group_id": new_group_id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    
 

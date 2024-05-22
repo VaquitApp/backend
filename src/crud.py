@@ -137,11 +137,18 @@ def get_budgets_by_group_id(db: Session, group_id: int):
 # INVITES
 ################################################
 
-# TODO: Quizas un GET INVITE BY PAIR, para que podamos validar que no spammeemos al usuario receiver si ya tiene una invite pendiente.
-
 
 def get_invite_by_id(db: Session, invite_id: int):
     return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
+
+
+def get_sent_invites_by_user(db: Session, user_id: int):
+    return (
+        db.query(models.Invite)
+        .filter(models.Invite.sender_id == user_id)
+        .limit(10)
+        .all()
+    )
 
 
 def create_invite(db: Session, sender_id: int, invite: schemas.InviteCreate):
