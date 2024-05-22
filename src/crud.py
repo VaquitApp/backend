@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
-from . import models, schemas
 import hashlib
+
+from src import models, schemas, auth
 
 
 ################################################
@@ -12,13 +13,13 @@ def get_user_by_id(db: Session, id: int):
     return db.query(models.User).filter(models.User.id == id).first()
 
 
-def get_user_by_email(db: Session, email: str):
+def get_user_by_email(db: Session, email: str) -> models.User:
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def create_user(db: Session, user: schemas.UserCreate):
-    hashed_password = hashlib.sha256(user.password.encode(encoding="utf-8")).hexdigest()
-    db_user = models.User(email=user.email, password=hashed_password)
+def create_user(db: Session, user: schemas.UserCreate) -> models.User:
+    hashed_password = auth.compute_password_hash(user.password)
+    db_user = models.User(email=user.email, hashed_password=hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -89,6 +90,44 @@ def get_spendings_by_group_id(db: Session, group_id: int):
     return (
         db.query(models.Spending)
         .filter(models.Spending.group_id == group_id)
+        .limit(100)
+        .all()
+    )
+
+
+################################################
+# BUDGETS
+################################################
+
+
+def create_budget(db: Session, budget: schemas.BudgetCreate):
+    db_budget = models.Budget(**dict(budget))
+    db.add(db_budget)
+    db.commit()
+    db.refresh(db_budget)
+    return db_budget
+
+
+def get_budget_by_id(db: Session, budget_id: int):
+    return db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+
+
+def put_budget(db: Session, budget_id: int, budget: schemas.BudgetPut):
+    db_budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+    db_budget.amount = budget.amount
+    db_budget.description = budget.description
+    db_budget.start_date = budget.start_date
+    db_budget.end_date = budget.end_date
+    db_budget.category_id = budget.category_id
+    db.commit()
+    db.refresh(db_budget)
+    return db_budget
+
+
+def get_budgets_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.Budget)
+        .filter(models.Budget.group_id == group_id)
         .limit(100)
         .all()
     )

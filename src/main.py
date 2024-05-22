@@ -1,8 +1,9 @@
 from http import HTTPStatus
 from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Header
-from . import crud, models, schemas
-from .database import SessionLocal, engine
+
+from src import crud, models, schemas, auth
+from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 import hashlib
 
@@ -20,19 +21,20 @@ def get_db():
 DbDependency = Annotated[Session, Depends(get_db)]
 
 
-def get_user(db: DbDependency, x_user: Annotated[int, Header()]) -> models.User:
-    db_user = crud.get_user_by_id(db, x_user)
-    if db_user is None:
+def ensure_user(x_user: Annotated[str, Header()]) -> models.User:
+    jwt_claims = auth.parse_jwt(x_user)
+    if jwt_claims is None:
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED,
             detail="Necesita loguearse para continuar",
         )
-    return db_user
+    user = models.User(id=jwt_claims["id"], email=jwt_claims["email"])
+    return user
 
 
 app = FastAPI(dependencies=[Depends(get_db)])
 
-UserDependency = Annotated[models.User, Depends(get_user)]
+UserDependency = Annotated[models.User, Depends(ensure_user)]
 
 ################################################
 # USERS
@@ -40,7 +42,7 @@ UserDependency = Annotated[models.User, Depends(get_user)]
 
 
 @app.post("/user/register", status_code=HTTPStatus.CREATED)
-def create_user(user: schemas.UserCreate, db: DbDependency):
+def create_user(user: schemas.UserCreate, db: DbDependency) -> schemas.UserCredentials:
     db_user = crud.get_user_by_email(db, email=user.email)
 
     if db_user is not None:
@@ -49,12 +51,12 @@ def create_user(user: schemas.UserCreate, db: DbDependency):
         )
 
     db_user = crud.create_user(db, user)
-
-    return {"id": db_user.id}
+    credentials = auth.login_user(db_user)
+    return credentials
 
 
 @app.post("/user/login", status_code=HTTPStatus.CREATED)
-def login(user: schemas.UserLogin, db: DbDependency):
+def login(user: schemas.UserLogin, db: DbDependency) -> schemas.UserCredentials:
     db_user = crud.get_user_by_email(db, email=user.email)
 
     if db_user is None:
@@ -62,14 +64,13 @@ def login(user: schemas.UserLogin, db: DbDependency):
             status_code=HTTPStatus.NOT_FOUND, detail="Usuario no existe"
         )
 
-    hashed_password = hashlib.sha256(user.password.encode(encoding="utf-8")).hexdigest()
-
-    if db_user.password != hashed_password:
+    if not auth.valid_password(user.password, db_user.hashed_password):
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED, detail="Contraseña incorrecta"
         )
 
-    return {"token": db_user.id}
+    credentials = auth.login_user(db_user)
+    return credentials
 
 
 ################################################
@@ -158,3 +159,38 @@ def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return crud.get_spendings_by_group_id(db, group_id)
+
+
+################################################
+# BUDGETS
+################################################
+
+
+@app.post("/budget", status_code=HTTPStatus.CREATED)
+def create_budget(
+    spending: schemas.BudgetCreate, db: DbDependency, user: UserDependency
+):
+    # TODO: check group exists
+    return crud.create_budget(db, spending)
+
+
+@app.get("/budget/{budget_id}")
+def get_budget(db: DbDependency, user: UserDependency, budget_id: int):
+    return crud.get_budget_by_id(db, budget_id)
+
+
+@app.put("/budget/{budget_id}")
+def put_budget(
+    db: DbDependency, user: UserDependency, budget_id: int, budget: schemas.BudgetPut
+):
+    return crud.put_budget(db, budget_id, budget)
+
+
+@app.get("/group/{group_id}/budget")
+def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        return HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return crud.get_budgets_by_group_id(db, group_id)

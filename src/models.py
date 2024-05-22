@@ -10,7 +10,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, index=True)
-    password = Column(String)
+    hashed_password = Column(String)
 
 
 class Category(Base):
@@ -39,3 +39,15 @@ class Spending(Base):
     amount = Column(Integer)
     description = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class Budget(Base):
+    __tablename__ = "budgets"
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(Integer)  # TODO: Column(ForeignKey("categories.id"))
+    start_date: Mapped[datetime] = mapped_column(DateTime)
+    end_date: Mapped[datetime] = mapped_column(DateTime)
+    amount = Column(Integer)
+    description = Column(String)

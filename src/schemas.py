@@ -1,4 +1,5 @@
-import datetime
+
+from datetime import datetime
 from enum import StrEnum, auto
 from typing import Optional
 from pydantic import BaseModel, Field
@@ -23,6 +24,10 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
+
+
+class UserCredentials(User):
+    jwt: str
 
 
 ################################################
@@ -72,7 +77,7 @@ class Group(GroupBase):
 class SpendingBase(BaseModel):
     amount: int
     description: str
-    date: Optional[datetime.date] = Field(None)
+    date: Optional[datetime] = Field(None)
     group_id: int
 
 
@@ -86,9 +91,33 @@ class Spending(SpendingBase):
 
 
 ################################################
-# INVITES
+# BUDGETS
 ################################################
 
+
+class BudgetBase(BaseModel):
+    amount: int
+    description: str
+    start_date: datetime
+    end_date: datetime
+    category_id: int
+
+
+class BudgetCreate(BudgetBase):
+    group_id: int
+
+
+class BudgetPut(BudgetBase):
+    pass
+
+
+class Budget(BudgetBase):
+    id: int
+    group_id: int
+
+################################################      
+# INVITES
+################################################
 
 class InviteStatus(StrEnum):
     PENDING = auto()
