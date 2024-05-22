@@ -12,7 +12,7 @@ models.Base.metadata.create_all(bind=engine)
 
 
 def get_mail_sender():
-    return MailService()
+    return MailService
 
 
 def get_db():
