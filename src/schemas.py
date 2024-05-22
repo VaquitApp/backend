@@ -63,6 +63,10 @@ class GroupCreate(GroupBase):
     pass
 
 
+class GroupUpdate(GroupCreate):
+    id: int
+
+
 class Group(GroupBase):
     id: int
     owner_id: int
