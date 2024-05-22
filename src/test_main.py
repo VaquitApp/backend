@@ -206,6 +206,46 @@ def test_get_newly_created_group(
     assert schemas.Group(**response.json()[0]) == some_group
 
 
+def test_update_group_correctly(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    
+    put_body = {
+        "id": some_group.id,
+        "name": "TESTING",
+        "description": "TESTING",
+    }
+    response = client.put(
+        url="/group",
+        headers={"x-user": some_credentials.jwt},
+        json=put_body
+    )
+    assert response.status_code == HTTPStatus.OK
+    response_group = schemas.Group(**response.json())
+    assert response_group.name != some_group.name
+    assert response_group.description != some_group.description
+
+
+
+
+def test_update_group_non_existant(client: TestClient,
+                                   some_credentials: schemas.UserCredentials,
+):
+    put_body = {
+        "id": 27,
+        "name": "TESTING",
+        "description": "TESTING",
+    }
+    response = client.put(
+        url=f"/group",
+        headers={"x-user": some_credentials.jwt},
+        json=put_body
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 ################################################
 # SPENDINGS
 ################################################
@@ -373,6 +413,7 @@ def test_get_group_budgets(
 ################################################
 # INVITES
 ################################################
+
 
 @pytest.fixture
 def some_invite(

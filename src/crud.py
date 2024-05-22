@@ -64,7 +64,7 @@ def update_group(db: Session, db_group: models.Group, put_group: schemas.GroupUp
     db_group.name = put_group.name
     db_group.description = put_group.description
     db.commit()
-    db.refresh
+    db.refresh(db_group)
     return db_group
 
 

@@ -119,7 +119,9 @@ def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDepende
 
 
 @app.put("/group", status_code=HTTPStatus.OK)
-def update_group(put_group: schemas.GroupUpdate, db: DbDependency, user: UserDependency):
+def update_group(
+    put_group: schemas.GroupUpdate, db: DbDependency, user: UserDependency
+):
     group_to_update = crud.get_group_by_id(db, put_group.id)
 
     if group_to_update is None or group_to_update.owner_id != user.id:
