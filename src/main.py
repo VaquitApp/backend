@@ -126,6 +126,15 @@ def list_groups(db: DbDependency, user: UserDependency, group_id: int):
         )
     return group
 
+@app.put("/group/{group_id}/archive")
+def archive_group(db:DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    archived_group = crud.update_group_status(db, group)
+    return {'detail': f'Grupo {archived_group.name} archivado correctamente'}
 
 ################################################
 # SPENDINGS

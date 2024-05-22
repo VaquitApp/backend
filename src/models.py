@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -27,6 +27,7 @@ class Group(Base):
     owner_id = Column(ForeignKey("users.id"))
     name = Column(String)
     description = Column(String)
+    is_archived = Column(Boolean)
 
 
 class Spending(Base):

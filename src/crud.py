@@ -52,7 +52,7 @@ def get_categories_by_group_id(db: Session, group_id: int):
 
 def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
     db_group = models.Group(
-        owner_id=user_id, name=group.name, description=group.description
+        owner_id=user_id, name=group.name, description=group.description, is_archived = False
     )
     db.add(db_group)
     db.commit()
@@ -71,6 +71,13 @@ def get_groups_by_owner_id(db: Session, owner_id: int):
 
 def get_group_by_id(db: Session, group_id: int):
     return db.query(models.Group).filter(models.Group.id == group_id).first()
+
+def update_group_status(db: Session, group: models.Group):
+    if group is not None: 
+        group.is_archived = True 
+        db.commit()
+        db.refresh(group)
+    return group 
 
 
 ################################################
@@ -93,7 +100,6 @@ def get_spendings_by_group_id(db: Session, group_id: int):
         .limit(100)
         .all()
     )
-
 
 ################################################
 # BUDGETS
