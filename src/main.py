@@ -252,9 +252,7 @@ def invite_user(
             detail=f"El usuario {user.id} no cuenta con privilegios de invitación en el grupo {target_group.id}.",
         )
 
-    sent_ok = mail.send(
-        sender=user.email, receiver=receiver.email, group_name=target_group.name
-    )
+    sent_ok = mail.send(sender=user.email, receiver=receiver.email, group=target_group)
 
     if sent_ok:
         return crud.create_invite(db, user.id, invite)
