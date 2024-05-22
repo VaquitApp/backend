@@ -66,6 +66,7 @@ class GroupCreate(GroupBase):
 class Group(GroupBase):
     id: int
     owner_id: int
+    is_archived: bool
 
 
 ################################################

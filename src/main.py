@@ -133,6 +133,31 @@ def list_groups(db: DbDependency, user: UserDependency, group_id: int):
     return group
 
 
+# TODO: CUANDO TERMINEN IMPLEMENTAR EL INVITE Y JOIN, NO DEJEN INVITAR NI ACEPTAR NI NADA SI EL GRUPO ESTA ARCHIVADO.
+
+
+@app.put("/group/{group_id}/archive", status_code=HTTPStatus.OK)
+def archive_group(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    archived_group = crud.update_group_status(db, group, True)
+    return {"detail": f"Grupo {archived_group.name} archivado correctamente"}
+
+
+@app.put("/group/{group_id}/unarchive", status_code=HTTPStatus.OK)
+def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    archived_group = crud.update_group_status(db, group, False)
+    return {"detail": f"Grupo {archived_group.name} desarchivado correctamente"}
+
+
 ################################################
 # SPENDINGS
 ################################################
@@ -142,7 +167,18 @@ def list_groups(db: DbDependency, user: UserDependency, group_id: int):
 def create_spending(
     spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
 ):
-    # TODO: check group exists
+    group = crud.get_group_by_id(db, spending.group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+    if group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            detail="El grupo esta archivado, no se pueden seguir agregando gastos.",
+        )
+
     return crud.create_spending(db, spending, user.id)
 
 
@@ -176,7 +212,17 @@ def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
 def create_budget(
     spending: schemas.BudgetCreate, db: DbDependency, user: UserDependency
 ):
-    # TODO: check group exists
+    group = crud.get_group_by_id(db, spending.group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+    if group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            detail="El grupo esta archivado, no se pueden seguir agregando presupuestos.",
+        )
     return crud.create_budget(db, spending)
 
 
@@ -187,9 +233,30 @@ def get_budget(db: DbDependency, user: UserDependency, budget_id: int):
 
 @app.put("/budget/{budget_id}")
 def put_budget(
-    db: DbDependency, user: UserDependency, budget_id: int, budget: schemas.BudgetPut
+    db: DbDependency,
+    user: UserDependency,
+    budget_id: int,
+    put_budget: schemas.BudgetPut,
 ):
-    return crud.put_budget(db, budget_id, budget)
+
+    db_budget = crud.get_budget_by_id(db, budget_id)
+
+    if db_budget is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Presupuesto inexistente"
+        )
+
+    group = crud.get_group_by_id(db, db_budget.group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    if group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            detail="El grupo esta archivado, no se pueden seguir agregando presupuestos.",
+        )
+    return crud.put_budget(db, db_budget, put_budget)
 
 
 @app.get("/group/{group_id}/budget")
