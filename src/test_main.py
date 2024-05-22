@@ -200,6 +200,38 @@ def test_get_newly_created_group(
     assert schemas.Group(**response.json()[0]) == some_group
 
 
+def test_correctly_archive_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.get(
+        url=f"/group/{some_group.id}",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert schemas.Group(**response.json()).is_archived
+
+
+def test_alter_state_of_non_existant_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.put(
+        url=f"/group/{some_group.id+1}/archive",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 ################################################
 # SPENDINGS
 ################################################
@@ -268,6 +300,29 @@ def test_get_spendings(
     assert response.status_code == HTTPStatus.OK
     assert len(response.json()) == 1
     assert schemas.Spending(**response.json()[0]) == some_spending
+
+
+def test_create_spending_on_archived_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url="/spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
 
 
 ################################################
@@ -362,3 +417,29 @@ def test_get_group_budgets(
     assert response.status_code == HTTPStatus.OK
     assert len(response.json()) == 1
     assert schemas.Budget(**response.json()[0]) == some_budget
+
+
+def test_create_budget_on_archived_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url="/budget",
+        json={
+            "amount": 1000,
+            "description": "MAS CAFE AAAA",
+            "start_date": "2021-01-01",
+            "end_date": "2021-02-01",
+            "group_id": some_group.id,
+            "category_id": 1,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE

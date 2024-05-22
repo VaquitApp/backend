@@ -46,7 +46,7 @@ class CategoryCreate(CategoryBase):
 
 class Category(CategoryBase):
     pass
-    
+
 
 ################################################
 # GROUPS

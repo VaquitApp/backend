@@ -25,12 +25,16 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     db.refresh(db_user)
     return db_user
 
+
 ################################################
 # CATEGORY
 ################################################
 
-def create_category(db: Session, category: schemas.CategoryCreate):  
-    new_category = models.Category(name = category.name, description = category.description, group_id = category.group_id)
+
+def create_category(db: Session, category: schemas.CategoryCreate):
+    new_category = models.Category(
+        name=category.name, description=category.description, group_id=category.group_id
+    )
     db.add(new_category)
     db.commit()
     db.refresh(new_category)
@@ -38,11 +42,7 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 
 
 def get_categories_by_group_id(db: Session, group_id: int):
-    return (
-        db.query(models.Category)
-        .filter(models.Category.group_id == group_id)
-        .all()
-    )
+    return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
 
 ################################################
@@ -52,7 +52,10 @@ def get_categories_by_group_id(db: Session, group_id: int):
 
 def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
     db_group = models.Group(
-        owner_id=user_id, name=group.name, description=group.description, is_archived = False
+        owner_id=user_id,
+        name=group.name,
+        description=group.description,
+        is_archived=False,
     )
     db.add(db_group)
     db.commit()
@@ -72,12 +75,12 @@ def get_groups_by_owner_id(db: Session, owner_id: int):
 def get_group_by_id(db: Session, group_id: int):
     return db.query(models.Group).filter(models.Group.id == group_id).first()
 
-def update_group_status(db: Session, group: models.Group):
-    if group is not None: 
-        group.is_archived = True 
-        db.commit()
-        db.refresh(group)
-    return group 
+
+def update_group_status(db: Session, group: models.Group, status: bool):
+    group.is_archived = status
+    db.commit()
+    db.refresh(group)
+    return group
 
 
 ################################################
@@ -101,6 +104,7 @@ def get_spendings_by_group_id(db: Session, group_id: int):
         .all()
     )
 
+
 ################################################
 # BUDGETS
 ################################################
@@ -118,13 +122,12 @@ def get_budget_by_id(db: Session, budget_id: int):
     return db.query(models.Budget).filter(models.Budget.id == budget_id).first()
 
 
-def put_budget(db: Session, budget_id: int, budget: schemas.BudgetPut):
-    db_budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
-    db_budget.amount = budget.amount
-    db_budget.description = budget.description
-    db_budget.start_date = budget.start_date
-    db_budget.end_date = budget.end_date
-    db_budget.category_id = budget.category_id
+def put_budget(db: Session, db_budget: models.Budget, put_budget: schemas.BudgetPut):
+    db_budget.amount = put_budget.amount
+    db_budget.description = put_budget.description
+    db_budget.start_date = put_budget.start_date
+    db_budget.end_date = put_budget.end_date
+    db_budget.category_id = put_budget.category_id
     db.commit()
     db.refresh(db_budget)
     return db_budget

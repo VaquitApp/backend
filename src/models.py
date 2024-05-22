@@ -20,6 +20,7 @@ class Category(Base):
     description = Column(String)
     group_id = Column(ForeignKey("groups.id"), primary_key=True)
 
+
 class Group(Base):
     __tablename__ = "groups"
 
