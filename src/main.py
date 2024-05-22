@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Header
 
 from src import crud, models, schemas, auth
-from src.mail import MailService
+from src.mail import mail_service
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 import hashlib
@@ -12,7 +12,7 @@ models.Base.metadata.create_all(bind=engine)
 
 
 def get_mail_sender():
-    return MailService
+    return mail_service
 
 
 def get_db():
@@ -218,7 +218,7 @@ def get_invite(db: DbDependency, invite_id: int):
 
 
 @app.get("/invite")
-def get_invite(db: DbDependency, user: UserDependency):
+def get_invites(db: DbDependency, user: UserDependency):
     return crud.get_sent_invites_by_user(db, user.id)
 
 

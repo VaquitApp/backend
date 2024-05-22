@@ -47,7 +47,7 @@ class LocalMailSender(MailSender):
 
 
 if API_KEY is not None:
-    MailService = ProdMailSender()
+    mail_service = ProdMailSender()
 else:
     warning("MailSender API Key not detected, defaulting to NO-OP Service.")
-    MailService = LocalMailSender()
+    mail_service = LocalMailSender()
