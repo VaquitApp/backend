@@ -430,6 +430,39 @@ def test_create_budget_on_archived_group(
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
+
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url="/budget",
+        json={
+            "amount": 1000,
+            "description": "MAS CAFE AAAA",
+            "start_date": "2021-01-01",
+            "end_date": "2021-02-01",
+            "group_id": some_group.id,
+            "category_id": 1,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+
+
+################################################
+# INVITES
+################################################
+
+
+@pytest.fixture
+def some_invite(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
     # Register Receiver User
     email = "receiver@example.com"
     response = client.post(
@@ -550,53 +583,3 @@ def test_send_group_invite_from_non_group_owner(
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-
-
-################################################
-# INVITES
-################################################
-
-
-@pytest.fixture
-def some_invite(
-    client: TestClient,
-    some_credentials: schemas.UserCredentials,
-    some_group: schemas.Group,
-):
-    response = client.put(
-        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
-    )
-    assert response.status_code == HTTPStatus.OK
-
-    response = client.post(
-        url="/budget",
-        json={
-            "amount": 1000,
-            "description": "MAS CAFE AAAA",
-            "start_date": "2021-01-01",
-            "end_date": "2021-02-01",
-            "group_id": some_group.id,
-            "category_id": 1,
-        },
-        headers={"x-user": some_credentials.jwt},
-    )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
-
-    response = client.put(
-        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
-    )
-    assert response.status_code == HTTPStatus.OK
-
-    response = client.post(
-        url="/budget",
-        json={
-            "amount": 1000,
-            "description": "MAS CAFE AAAA",
-            "start_date": "2021-01-01",
-            "end_date": "2021-02-01",
-            "group_id": some_group.id,
-            "category_id": 1,
-        },
-        headers={"x-user": some_credentials.jwt},
-    )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
