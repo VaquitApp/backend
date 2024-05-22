@@ -478,7 +478,7 @@ def test_send_group_invite_from_non_group_owner(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
 ):
-    
+
     # Other User
     email = "example2@example.com"
     response = client.post(
@@ -504,5 +504,3 @@ def test_send_group_invite_from_non_group_owner(
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    
-
