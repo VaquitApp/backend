@@ -1,6 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func, Enum
 from sqlalchemy.orm import Mapped, mapped_column
+from src.schemas import InviteStatus
 
 from .database import Base
 
@@ -51,3 +52,14 @@ class Budget(Base):
     end_date: Mapped[datetime] = mapped_column(DateTime)
     amount = Column(Integer)
     description = Column(String)
+
+
+class Invite(Base):
+    __tablename__ = "invites"
+
+    id = Column(Integer, primary_key=True)
+    sender_id = Column(ForeignKey("users.id"))
+    receiver_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    status = Column(Enum(InviteStatus))
+    creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())

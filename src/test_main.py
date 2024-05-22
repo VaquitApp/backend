@@ -7,7 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.main import app, get_db
+from src.mail import LocalMailSender
+from src.main import app, get_db, get_mail_sender
 from src.database import Base, SQLALCHEMY_DATABASE_URL
 from src import schemas, auth
 
@@ -24,9 +25,14 @@ def override_get_db():
         db.close()
 
 
+def override_get_mail_sender():
+    return LocalMailSender()
+
+
 @pytest.fixture()
 def client():
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_mail_sender] = override_get_mail_sender
 
     Base.metadata.create_all(bind=engine)
     yield TestClient(app)
@@ -362,3 +368,8 @@ def test_get_group_budgets(
     assert response.status_code == HTTPStatus.OK
     assert len(response.json()) == 1
     assert schemas.Budget(**response.json()[0]) == some_budget
+
+################################################
+# INVITES
+################################################
+

@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Optional
@@ -115,9 +114,11 @@ class Budget(BudgetBase):
     id: int
     group_id: int
 
-################################################      
+
+################################################
 # INVITES
 ################################################
+
 
 class InviteStatus(StrEnum):
     PENDING = auto()
@@ -126,12 +127,20 @@ class InviteStatus(StrEnum):
 
 
 class InviteBase(BaseModel):
-    date: datetime.date
-    status: InviteStatus
+    creation_date: Optional[datetime] = Field(None)
+
+
+class InviteCreate(InviteBase):
+    receiver_email: str
+    receiver_id: Optional[int] = Field(None)
+    group_id: int
+
+
+class InvitePut(InviteBase):
+    pass
 
 
 class Invite(InviteBase):
     id: int
     sender_id: int
-    receiver_id: int
-    group_id: int
+    status: InviteStatus
