@@ -25,12 +25,16 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     db.refresh(db_user)
     return db_user
 
+
 ################################################
 # CATEGORY
 ################################################
 
-def create_category(db: Session, category: schemas.CategoryCreate):  
-    new_category = models.Category(name = category.name, description = category.description, group_id = category.group_id)
+
+def create_category(db: Session, category: schemas.CategoryCreate):
+    new_category = models.Category(
+        name=category.name, description=category.description, group_id=category.group_id
+    )
     db.add(new_category)
     db.commit()
     db.refresh(new_category)
@@ -38,11 +42,7 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 
 
 def get_categories_by_group_id(db: Session, group_id: int):
-    return (
-        db.query(models.Category)
-        .filter(models.Category.group_id == group_id)
-        .all()
-    )
+    return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
 
 ################################################
@@ -131,3 +131,34 @@ def get_budgets_by_group_id(db: Session, group_id: int):
         .limit(100)
         .all()
     )
+
+
+################################################
+# INVITES
+################################################
+
+
+def get_invite_by_id(db: Session, invite_id: int):
+    return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
+
+
+def get_sent_invites_by_user(db: Session, user_id: int):
+    return (
+        db.query(models.Invite)
+        .filter(models.Invite.sender_id == user_id)
+        .limit(10)
+        .all()
+    )
+
+
+def create_invite(db: Session, sender_id: int, invite: schemas.InviteCreate):
+    db_invite = models.Invite(
+        sender_id=sender_id,
+        receiver_id=invite.receiver_id,
+        group_id=invite.group_id,
+        status=schemas.InviteStatus.PENDING,
+    )
+    db.add(db_invite)
+    db.commit()
+    db.refresh(db_invite)
+    return db_invite
