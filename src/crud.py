@@ -100,6 +100,14 @@ def update_group_status(db: Session, group: models.Group, status: bool):
     return group
 
 
+def add_user_to_group(db: Session, group: models.Group, user_id: int):
+    user = get_user_by_id(db, user_id)
+    group.members.add(user)
+    db.commit()
+    db.refresh(group)
+    return group
+
+
 ################################################
 # SPENDINGS
 ################################################
