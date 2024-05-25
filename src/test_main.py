@@ -181,6 +181,24 @@ def test_get_created_group(
     assert schemas.Group(**response.json()) == some_group
 
 
+def test_get_group_members_with_only_owner(
+    client: TestClient,
+    some_group: schemas.Group,
+    some_credentials: schemas.UserCredentials,
+):
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(body) == 1
+    assert body[0]["id"] == some_credentials.id
+    assert body[0]["email"] == some_credentials.email
+
+
 def test_create_group_for_invalid_user(client: TestClient):
     first_response = client.post(
         url="/group",

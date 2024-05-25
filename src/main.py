@@ -113,6 +113,10 @@ def list_group_categories(db: DbDependency, group_id: int):
 ################################################
 
 
+def user_id_in_group(user_id: int, group: models.Group) -> bool:
+    return any(member.id == user_id for member in group.members)
+
+
 @app.post("/group", status_code=HTTPStatus.CREATED)
 def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
     return crud.create_group(db, group, user.id)
@@ -134,17 +138,28 @@ def update_group(
 
 @app.get("/group")
 def list_groups(db: DbDependency, user: UserDependency):
-    return crud.get_groups_by_owner_id(db, user.id)
+    return crud.get_groups_by_user_id(db, user.id)
 
 
 @app.get("/group/{group_id}")
-def list_groups(db: DbDependency, user: UserDependency, group_id: int):
+def get_group_by_id(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    if group is None or group.owner_id != user.id:
+
+    if group is None or not user_id_in_group(user.id, group):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
     return group
+
+
+@app.get("/group/{group_id}/member")
+def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    if group is None or user.id not in [member.id for member in group.members]:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    return group.members
 
 
 # TODO: CUANDO TERMINEN IMPLEMENTAR EL INVITE Y JOIN, NO DEJEN INVITAR NI ACEPTAR NI NADA SI EL GRUPO ESTA ARCHIVADO.

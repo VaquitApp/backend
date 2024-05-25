@@ -12,9 +12,9 @@ from sqlalchemy import (
     Enum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from src.schemas import InviteStatus
 
-from .database import Base
+from src.schemas import InviteStatus
+from src.database import Base
 
 
 user_to_group_table = Table(

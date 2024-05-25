@@ -1,5 +1,5 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
-import hashlib
 
 from src import models, schemas, auth
 
@@ -51,6 +51,7 @@ def get_categories_by_group_id(db: Session, group_id: int):
 
 
 def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
+    # Create the group
     db_group = models.Group(
         owner_id=user_id,
         name=group.name,
@@ -58,6 +59,11 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
         is_archived=False,
     )
     db.add(db_group)
+
+    # Add the owner to the group members
+    db_user = get_user_by_id(db, user_id)
+    db_user.groups.add(db_group)
+
     db.commit()
     db.refresh(db_group)
     return db_group
@@ -71,11 +77,14 @@ def update_group(db: Session, db_group: models.Group, put_group: schemas.GroupUp
     return db_group
 
 
-def get_groups_by_owner_id(db: Session, owner_id: int):
+def get_groups_by_user_id(db: Session, user_id: int):
     return (
-        db.query(models.Group)
-        .filter(models.Group.owner_id == owner_id)
-        .limit(100)
+        db.execute(
+            select(models.Group)
+            .where(models.Group.members.any(models.User.id == user_id))
+            .limit(100)
+        )
+        .scalars()
         .all()
     )
 
