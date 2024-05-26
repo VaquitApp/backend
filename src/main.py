@@ -113,6 +113,35 @@ def list_group_categories(db: DbDependency, group_id: int):
 ################################################
 
 
+def user_id_in_group(user_id: int, group: models.Group) -> bool:
+    return any(member.id == user_id for member in group.members)
+
+
+def check_group_exists_and_user_is_member(user_id: int, group: models.Group):
+    # If group does not exist or user is not in group
+    if group is None or not user_id_in_group(user_id, group):
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+
+def check_group_exists_and_user_is_owner(user_id: int, group: models.Group):
+    # If group does not exist or user is not in group
+    if group is None or (
+        group.owner_id != user_id and not user_id_in_group(user_id, group)
+    ):
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+    # If user is in group, but is not the owner
+    if group.owner_id != user_id:
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail="No tiene permisos para modificar este grupo",
+        )
+
+
 @app.post("/group", status_code=HTTPStatus.CREATED)
 def create_group(group: schemas.GroupCreate, db: DbDependency, user: UserDependency):
     return crud.create_group(db, group, user.id)
@@ -124,27 +153,48 @@ def update_group(
 ):
     group_to_update = crud.get_group_by_id(db, put_group.id)
 
-    if group_to_update is None or group_to_update.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+    check_group_exists_and_user_is_owner(user.id, group_to_update)
 
     return crud.update_group(db, group_to_update, put_group)
 
 
 @app.get("/group")
 def list_groups(db: DbDependency, user: UserDependency):
-    return crud.get_groups_by_owner_id(db, user.id)
+    return crud.get_groups_by_user_id(db, user.id)
 
 
 @app.get("/group/{group_id}")
-def list_groups(db: DbDependency, user: UserDependency, group_id: int):
+def get_group_by_id(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_member(user.id, group)
+
     return group
+
+
+@app.post("/group/{group_id}/member", status_code=HTTPStatus.CREATED)
+def add_user_to_group(
+    db: DbDependency,
+    user: UserDependency,
+    group_id: int,
+    req: schemas.AddUserToGroupRequest,
+):
+    group = crud.get_group_by_id(db, group_id)
+
+    check_group_exists_and_user_is_owner(user.id, group)
+
+    crud.add_user_to_group(db, group, req.user_id)
+
+    return group.members
+
+
+@app.get("/group/{group_id}/member")
+def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+
+    return group.members
 
 
 # TODO: CUANDO TERMINEN IMPLEMENTAR EL INVITE Y JOIN, NO DEJEN INVITAR NI ACEPTAR NI NADA SI EL GRUPO ESTA ARCHIVADO.
@@ -153,10 +203,9 @@ def list_groups(db: DbDependency, user: UserDependency, group_id: int):
 @app.put("/group/{group_id}/archive", status_code=HTTPStatus.OK)
 def archive_group(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_owner(user.id, group)
+
     archived_group = crud.update_group_status(db, group, True)
     return {"detail": f"Grupo {archived_group.name} archivado correctamente"}
 
@@ -164,10 +213,9 @@ def archive_group(db: DbDependency, user: UserDependency, group_id: int):
 @app.put("/group/{group_id}/unarchive", status_code=HTTPStatus.OK)
 def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_owner(user.id, group)
+
     archived_group = crud.update_group_status(db, group, False)
     return {"detail": f"Grupo {archived_group.name} desarchivado correctamente"}
 
@@ -182,10 +230,8 @@ def create_spending(
     spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
 ):
     group = crud.get_group_by_id(db, spending.group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_member(user.id, group)
 
     if group.is_archived:
         raise HTTPException(
@@ -199,21 +245,18 @@ def create_spending(
 @app.get("/spending")
 def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    # TODO: allow members to see spendings
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_member(user.id, group)
+
     return crud.get_spendings_by_group_id(db, group_id)
 
 
 @app.get("/group/{group_id}/spending")
 def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_member(user.id, group)
+
     return crud.get_spendings_by_group_id(db, group_id)
 
 
@@ -227,10 +270,8 @@ def create_budget(
     spending: schemas.BudgetCreate, db: DbDependency, user: UserDependency
 ):
     group = crud.get_group_by_id(db, spending.group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_owner(user.id, group)
 
     if group.is_archived:
         raise HTTPException(
@@ -261,10 +302,9 @@ def put_budget(
         )
 
     group = crud.get_group_by_id(db, db_budget.group_id)
-    if group is None or group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_member(user.id, group)
+
     if group.is_archived:
         raise HTTPException(
             status_code=HTTPStatus.NOT_ACCEPTABLE,
@@ -276,10 +316,9 @@ def put_budget(
 @app.get("/group/{group_id}/budget")
 def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    if group is None or group.owner_id != user.id:
-        return HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
+
+    check_group_exists_and_user_is_member(user.id, group)
+
     return crud.get_budgets_by_group_id(db, group_id)
 
 

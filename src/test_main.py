@@ -181,6 +181,24 @@ def test_get_created_group(
     assert schemas.Group(**response.json()) == some_group
 
 
+def test_get_group_members_with_only_owner(
+    client: TestClient,
+    some_group: schemas.Group,
+    some_credentials: schemas.UserCredentials,
+):
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(body) == 1
+    assert body[0]["id"] == some_credentials.id
+    assert body[0]["email"] == some_credentials.email
+
+
 def test_create_group_for_invalid_user(client: TestClient):
     first_response = client.post(
         url="/group",
@@ -243,7 +261,6 @@ def test_update_group_correctly(
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-
     put_body = {
         "id": some_group.id,
         "name": "TESTING",
@@ -271,6 +288,41 @@ def test_update_group_non_existant(
         url=f"/group", headers={"x-user": some_credentials.jwt}, json=put_body
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_add_user_to_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create new user
+    body = {"email": "some_email@example.com", "password": "some_password"}
+    response = client.post(url="/user/register", json=body)
+    assert response.status_code == HTTPStatus.CREATED
+    user = response.json()
+
+    # Add new user to group
+    response = client.post(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+        json={"user_id": user["id"]},
+    )
+    body = response.json()
+    assert response.status_code == HTTPStatus.CREATED
+    assert len(body) == 2
+    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
+
+    # GET group members
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(body) == 2
+    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
 
 
 ################################################

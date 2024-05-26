@@ -29,6 +29,10 @@ class UserCredentials(User):
     jwt: str
 
 
+class AddUserToGroupRequest(BaseModel):
+    user_id: int
+
+
 ################################################
 # CATEGORIES
 ################################################
