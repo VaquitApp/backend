@@ -100,22 +100,12 @@ def update_group_status(db: Session, group: models.Group, status: bool):
 ################################################
 
 
-def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int, categoryname: str):
-    db_spending = models.Spending(owner_id=user_id, category_name = categoryname,**dict(spending))
+def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int):
+    db_spending = models.Spending(owner_id=user_id, **dict(spending))
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
     return db_spending
-
-def put_spending(db: Session, db_spending: models.Spending, put_spending: schemas.SpendingPut):
-    db_spending.description = put_spending.description
-    db_spending.amount = put_spending.amount
-    db_spending.date = put_spending.date
-    db_spending.category_name = put_spending.category_name
-    db.commit()
-    db.refresh(db_spending)
-    return db_spending
-
 
 def get_spendings_by_group_id(db: Session, group_id: int):
     return (

@@ -26,7 +26,7 @@ class User(Base):
 class Category(Base):
     __tablename__ = "categories"
 
-    name = Column(String, primary_key=True)
+    name = Column(String, primary_key=True, unique=True, index=True)
     description = Column(String)
     group_id = Column(ForeignKey("groups.id"), primary_key=True)
 
@@ -47,9 +47,9 @@ class Spending(Base):
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
+    category_name = Column(ForeignKey("categories.name"))
     amount = Column(Integer)
     description = Column(String)
-    category_name = Column(ForeignKey("categories.name"))
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
