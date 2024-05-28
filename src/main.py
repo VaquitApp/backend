@@ -376,7 +376,7 @@ def send_invite(
         )
 
 
-@app.post("/join/{invite_token}", status_code=HTTPStatus.OK)
+@app.post("/invite/join/{invite_token}", status_code=HTTPStatus.OK)
 def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
 
     target_invite = crud.get_invite_by_token(db, invite_token)
@@ -387,7 +387,8 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
         )
 
     if is_expired_invite(target_invite.creation_date):
-        crud.update_invite_status(db, target_invite, schemas.InviteStatus.EXPIRED)
+        if target_invite.status == schemas.InviteStatus.PENDING:
+            crud.update_invite_status(db, target_invite, schemas.InviteStatus.EXPIRED)
         raise HTTPException(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             detail="La invitacion ha expirado.",
@@ -412,7 +413,5 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
-    crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
     crud.add_user_to_group(db, target_group, user.id)
-
-    return target_invite
+    return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)

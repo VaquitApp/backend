@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -138,7 +139,7 @@ class InviteStatus(StrEnum):
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
     receiver_id: Optional[int] = Field(None)
-    token: Optional[str] = Field(None)
+    token: Optional[UUID] = Field(None)
     group_id: int
 
 
