@@ -179,8 +179,7 @@ def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
 
 @app.post("/spending", status_code=HTTPStatus.CREATED)
 def create_spending(
-    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
-):
+    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency, category_name: str):
     group = crud.get_group_by_id(db, spending.group_id)
     if group is None or group.owner_id != user.id:
         raise HTTPException(
@@ -192,9 +191,43 @@ def create_spending(
             status_code=HTTPStatus.NOT_ACCEPTABLE,
             detail="El grupo esta archivado, no se pueden seguir agregando gastos.",
         )
-
+    
     return crud.create_spending(db, spending, user.id)
 
+@app.put("/spending/{spending_id}")
+def put_spending(
+    db: DbDependency, user: UserDependency,
+    spending_id: int,
+    put_spending: schemas.SpendingPut, category_name: str):
+
+    db_spending = crud.get_spending_by_id(db, spending_id)
+
+    if db_spending is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Gasto inexistente"
+        )
+
+    group = crud.get_group_by_id(db, db_spending.group_id)
+    if group is None or group.owner_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+    
+
+    if group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            detail="El grupo esta archivado, no se pueden seguir agregando gastos.",
+        )
+    
+    categories = crud.get_categories_by_group_id(db, db_spending.group_id)
+    category = crud.get_category_by_name(db, category_name)
+    if category is None or (category not in categories):
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+    
+    return crud.put_spending(db, db_spending, put_spending)
 
 @app.get("/spending")
 def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
