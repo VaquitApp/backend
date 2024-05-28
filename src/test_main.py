@@ -626,7 +626,20 @@ def test_send_group_invite_non_existant_group(
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_send_group_invite_from_non_group_owner(
+def test_send_group_invite_to_already_member(
+    client: TestClient,
+    some_group: schemas.Group,
+    some_credentials: schemas.UserCredentials,
+):
+    response = client.post(
+        url="/invite",
+        json={"receiver_email": some_credentials.email, "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_send_group_invite_from_non_group_member(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
 ):
@@ -655,4 +668,4 @@ def test_send_group_invite_from_non_group_owner(
         json={"receiver_email": email, "group_id": new_group_id},
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.status_code == HTTPStatus.NOT_FOUND

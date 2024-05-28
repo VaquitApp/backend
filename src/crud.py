@@ -177,6 +177,10 @@ def get_invite_by_id(db: Session, invite_id: int):
     return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
 
 
+def get_invite_by_token(db: Session, token: str):
+    return db.query(models.Invite).filter(models.Invite.token == UUID(token)).first()
+
+
 def create_invite(
     db: Session, sender_id: int, token: UUID, invite: schemas.InviteCreate
 ):
@@ -188,6 +192,15 @@ def create_invite(
         status=schemas.InviteStatus.PENDING,
     )
     db.add(db_invite)
+    db.commit()
+    db.refresh(db_invite)
+    return db_invite
+
+
+def update_invite_status(
+    db: Session, db_invite: models.Invite, status: schemas.InviteStatus
+):
+    db_invite.status = status
     db.commit()
     db.refresh(db_invite)
     return db_invite

@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
 from src import crud, models, schemas, auth
-from src.mail import mail_service
+from src.mail import mail_service, is_expired_invite
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 import hashlib
@@ -339,7 +339,7 @@ def get_invite(db: DbDependency, invite_id: int):
 
 
 @app.post("/invite", status_code=HTTPStatus.CREATED)
-def invite_user(
+def send_invite(
     db: DbDependency,
     user: UserDependency,
     mail: MailDependency,
@@ -355,17 +355,13 @@ def invite_user(
     invite.receiver_id = receiver.id
 
     target_group = crud.get_group_by_id(db, invite.group_id)
-    if target_group is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente."
-        )
-    elif target_group.owner_id != user.id:
-        raise HTTPException(
-            status_code=HTTPStatus.UNAUTHORIZED,
-            detail=f"El usuario {user.id} no cuenta con privilegios de invitación en el grupo {target_group.id}.",
-        )
+    check_group_exists_and_user_is_owner(user.id, target_group)
 
-    # TODO: Check if user already has pending invite to receiver.
+    if user_id_in_group(receiver.id, target_group):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"El usuario ya es miembro del equipo {target_group.name}",
+        )
 
     token = uuid4()
     sent_ok = mail.send(
@@ -376,5 +372,47 @@ def invite_user(
         return crud.create_invite(db, user.id, token, invite)
     else:
         raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST, detail="Failed to invite user."
+            status_code=HTTPStatus.BAD_REQUEST, detail="No se pudo invitar al usuario."
         )
+
+
+@app.post("/join/{invite_token}", status_code=HTTPStatus.OK)
+def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
+
+    target_invite = crud.get_invite_by_token(db, invite_token)
+    if target_invite is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"No existe invitacion con el token: {invite_token}",
+        )
+
+    if is_expired_invite(target_invite.creation_date):
+        crud.update_invite_status(db, target_invite, schemas.InviteStatus.EXPIRED)
+        raise HTTPException(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            detail="La invitacion ha expirado.",
+        )
+
+    if user.id != target_invite.receiver_id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="La invitacion no es para este usuario!",
+        )
+
+    target_group = crud.get_group_by_id(db, target_invite.group_id)
+    if target_group is None or target_group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"No se puede agregar un nuevo miembro a este grupo.",
+        )
+
+    if user_id_in_group(user.id, target_group):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"El usuario ya es miembro del grupo {target_group.name}",
+        )
+
+    crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
+    crud.add_user_to_group(db, target_group, user.id)
+
+    return target_invite

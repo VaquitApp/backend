@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 import os
 from logging import info, error, warning
 import sib_api_v3_sdk as sdk
@@ -30,6 +31,7 @@ class ProdMailSender(MailSender):
             "sender": sender,
             "group_name": group.name,
             "group_description": group.description,
+            "base_url": "",
             "token": token,
         }
 
@@ -56,3 +58,10 @@ if API_KEY is not None:
 else:
     warning("MailSender API Key not detected, defaulting to NO-OP Service.")
     mail_service = LocalMailSender()
+
+
+def is_expired_invite(creation_date: datetime) -> bool:
+    now = datetime.now()
+    diff = (creation_date - now).total_seconds()
+    hours = divmod(diff, 3600)[0]
+    return hours > 24
