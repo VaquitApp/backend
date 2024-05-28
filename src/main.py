@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Annotated
+from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
 from src import crud, models, schemas, auth
@@ -337,14 +338,6 @@ def get_invite(db: DbDependency, invite_id: int):
     return invite
 
 
-@app.get("/invite")
-def get_invites(db: DbDependency, user: UserDependency):
-    return crud.get_sent_invites_by_user(db, user.id)
-
-
-# TODO: get_pending_invites_to_user()
-
-
 @app.post("/invite", status_code=HTTPStatus.CREATED)
 def invite_user(
     db: DbDependency,
@@ -372,13 +365,16 @@ def invite_user(
             detail=f"El usuario {user.id} no cuenta con privilegios de invitación en el grupo {target_group.id}.",
         )
 
-    sent_ok = mail.send(sender=user.email, receiver=receiver.email, group=target_group)
+    # TODO: Check if user already has pending invite to receiver.
+
+    token = uuid4()
+    sent_ok = mail.send(
+        sender=user.email, receiver=receiver.email, group=target_group, token=token.hex
+    )
 
     if sent_ok:
-        return crud.create_invite(db, user.id, invite)
+        return crud.create_invite(db, user.id, token, invite)
     else:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST, detail="Failed to invite user."
         )
-
-    # TODO: Accept Invite -> Check expiring and etc..

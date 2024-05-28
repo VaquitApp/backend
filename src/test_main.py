@@ -594,20 +594,6 @@ def test_get_invite_by_id(
     assert schemas.Invite(**response.json()) == some_invite
 
 
-def test_get_all_sent_invites_by_user(
-    client: TestClient,
-    some_credentials: schemas.UserCredentials,
-    some_invite: schemas.Invite,
-):
-    response = client.get(
-        url="/invite",
-        headers={"x-user": some_credentials.jwt},
-    )
-    assert response.status_code == HTTPStatus.OK
-    assert len(response.json()) == 1
-    assert schemas.Invite(**response.json()[0]) == some_invite
-
-
 def test_get_invite_by_non_existant_id(client: TestClient):
     response = client.get(
         url=f"/invite/12345",

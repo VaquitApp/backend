@@ -138,6 +138,7 @@ class InviteStatus(StrEnum):
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
     receiver_id: Optional[int] = Field(None)
+    token: Optional[str] = Field(None)
     group_id: int
 
 

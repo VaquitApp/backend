@@ -17,7 +17,9 @@ class MailSender(ABC):
 
 
 class ProdMailSender(MailSender):
-    def send(self, sender: str, receiver: str, group: schemas.Group) -> bool:
+    def send(
+        self, sender: str, receiver: str, group: schemas.Group, token: str
+    ) -> bool:
         configuration = sdk.Configuration()
         configuration.api_key["api-key"] = API_KEY
 
@@ -28,6 +30,7 @@ class ProdMailSender(MailSender):
             "sender": sender,
             "group_name": group.name,
             "group_description": group.description,
+            "token": token,
         }
 
         email = sdk.SendSmtpEmail(to=to, template_id=TEMPLATE_ID, params=params)
@@ -42,7 +45,9 @@ class ProdMailSender(MailSender):
 
 
 class LocalMailSender(MailSender):
-    def send(self, sender: str, receiver: str, group: schemas.Group) -> bool:
+    def send(
+        self, sender: str, receiver: str, group: schemas.Group, token: str
+    ) -> bool:
         return True
 
 
