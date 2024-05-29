@@ -44,6 +44,13 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
+def get_category(db: Session, group_id: int, category_name= str):
+    return db.query(models.Category).filter(models.Category.group_id == group_id, models.Category.name == category_name).first()
+
+def delete_category(db: Session, category: models.Category):
+    db.delete(category)
+    db.commit()
+    return {"message": "Categoria eliminada exitosamente!"}
 
 ################################################
 # GROUPS

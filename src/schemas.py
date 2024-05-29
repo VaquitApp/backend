@@ -36,14 +36,11 @@ class UserCredentials(User):
 
 class CategoryBase(BaseModel):
     name: str
-    description: str
-    group_id: str
-    strategy: str
-
+    group_id: int
 
 class CategoryCreate(CategoryBase):
-    pass
-
+    description: str
+    strategy: str
 
 class Category(CategoryBase):
     pass
