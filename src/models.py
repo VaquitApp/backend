@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Set
+from uuid import uuid4
 from sqlalchemy import (
     Column,
     DateTime,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Table,
     func,
     Enum,
+    UUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -87,5 +89,6 @@ class Invite(Base):
     sender_id = Column(ForeignKey("users.id"))
     receiver_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
+    token = Column(UUID(as_uuid=True), unique=True, default=uuid4)
     status = Column(Enum(InviteStatus))
     creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())

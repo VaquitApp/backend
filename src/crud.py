@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from src import models, schemas, auth
 
@@ -176,23 +177,30 @@ def get_invite_by_id(db: Session, invite_id: int):
     return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
 
 
-def get_sent_invites_by_user(db: Session, user_id: int):
-    return (
-        db.query(models.Invite)
-        .filter(models.Invite.sender_id == user_id)
-        .limit(10)
-        .all()
-    )
+def get_invite_by_token(db: Session, token: str):
+    return db.query(models.Invite).filter(models.Invite.token == UUID(token)).first()
 
 
-def create_invite(db: Session, sender_id: int, invite: schemas.InviteCreate):
+def create_invite(
+    db: Session, sender_id: int, token: UUID, invite: schemas.InviteCreate
+):
     db_invite = models.Invite(
         sender_id=sender_id,
         receiver_id=invite.receiver_id,
         group_id=invite.group_id,
+        token=token,
         status=schemas.InviteStatus.PENDING,
     )
     db.add(db_invite)
+    db.commit()
+    db.refresh(db_invite)
+    return db_invite
+
+
+def update_invite_status(
+    db: Session, db_invite: models.Invite, status: schemas.InviteStatus
+):
+    db_invite.status = status
     db.commit()
     db.refresh(db_invite)
     return db_invite
