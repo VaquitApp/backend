@@ -44,6 +44,15 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
+def get_category(db: Session, group_id: int, category_name= str):
+    return db.query(models.Category).filter(models.Category.group_id == group_id, models.Category.name == category_name).first()
+
+def update_category(db: Session, category: models.Category, put_category: schemas.CategoryUpdate):
+    category.name=put_category.new_name
+    db.commit()
+    db.refresh(category)
+    return category
+
 
 ################################################
 # GROUPS

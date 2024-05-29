@@ -485,6 +485,38 @@ def test_create_budget_on_archived_group(
     )
     assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
 
+################################################
+# CATEGORIES
+################################################
+# TODO
+# @pytest.fixture()
+# def some_category(client: TestClient, some_credentials: schemas.UserCredentials, some_group: schemas.Group):
+#     response = client.post(
+#         url="/category",
+#         json={"name": "nombre categoria", "description": "really long description 1234", "group_id": some_group.id, "strategy": "a cool strategy"},
+#         headers={"x-user": some_credentials.jwt},
+#     )
+
+#     assert response.status_code == HTTPStatus.CREATED
+#     response_body = response.json()
+#     assert response_body["group_id"] == some_group.id
+#     return schemas.Category(**response_body)
+
+
+# def test_category_modify_name(client: TestClient, some_credentials: schemas.UserCredentials, some_group: schemas.Group, some_category: schemas.Category):
+#     response = client.put(
+#         url="/category",
+#         json={"name": some_category.name, "new_name": "nuevo nombre categoria", "group_id": some_group.id},
+#         headers={"x-user": some_credentials.jwt},
+#     )
+    
+#     assert response.status_code == HTTPStatus.OK
+#     response_body = response.json()
+#     assert "id" in response_body
+#     assert response_body["name"] == "nuevo nombre categoria"
+#     return schemas.Category(**response_body)
+
+
 
 ################################################
 # INVITES

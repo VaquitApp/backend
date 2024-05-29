@@ -48,6 +48,11 @@ class CategoryCreate(CategoryBase):
 class Category(CategoryBase):
     pass
 
+class CategoryUpdate(BaseModel):
+    name: str
+    new_name: str
+    group_id: str
+
 
 ################################################
 # GROUPS
