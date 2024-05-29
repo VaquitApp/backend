@@ -33,7 +33,7 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
 
 def create_category(db: Session, category: schemas.CategoryCreate):
     new_category = models.Category(
-        name=category.name, description=category.description, group_id=category.group_id
+        name=category.name, description=category.description, group_id=category.group_id, strategy=category.strategy
     )
     db.add(new_category)
     db.commit()

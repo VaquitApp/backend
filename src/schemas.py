@@ -37,7 +37,7 @@ class UserCredentials(User):
 class CategoryBase(BaseModel):
     name: str
     description: str
-    group_id: str
+    group_id: int
     strategy: str
 
 
@@ -51,7 +51,7 @@ class Category(CategoryBase):
 class CategoryUpdate(BaseModel):
     name: str
     new_name: str
-    group_id: str
+    group_id: int
 
 
 ################################################
