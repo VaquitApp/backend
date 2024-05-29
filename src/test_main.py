@@ -602,7 +602,7 @@ def test_get_invite_by_id(
 
 def test_get_invite_by_non_existant_id(client: TestClient):
     response = client.get(
-        url=f"/invite/{uuid4()}",
+        url=f"/invite/{uuid4().hex}",
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 
