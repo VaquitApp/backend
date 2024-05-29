@@ -7,6 +7,7 @@ from sib_api_v3_sdk.rest import ApiException
 
 from src import schemas
 
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
 API_KEY = os.environ.get("EMAIL_API_KEY")
 TEMPLATE_ID = 1
 
@@ -31,8 +32,7 @@ class ProdMailSender(MailSender):
             "sender": sender,
             "group_name": group.name,
             "group_description": group.description,
-            "base_url": "",
-            "token": token,
+            "join_link": f"{BASE_URL}/invite/join/{token}"
         }
 
         email = sdk.SendSmtpEmail(to=to, template_id=TEMPLATE_ID, params=params)
