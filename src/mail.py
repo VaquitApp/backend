@@ -32,7 +32,7 @@ class ProdMailSender(MailSender):
             "sender": sender,
             "group_name": group.name,
             "group_description": group.description,
-            "join_link": f"{BASE_URL}/invite/join/{token}",
+            "join_link": f"{BASE_URL}/invites/accept/{token}",
         }
 
         email = sdk.SendSmtpEmail(to=to, template_id=TEMPLATE_ID, params=params)
