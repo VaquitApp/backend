@@ -172,11 +172,6 @@ def get_budgets_by_group_id(db: Session, group_id: int):
 # INVITES
 ################################################
 
-
-def get_invite_by_id(db: Session, invite_id: int):
-    return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
-
-
 def get_invite_by_token(db: Session, token: str):
     return db.query(models.Invite).filter(models.Invite.token == UUID(token)).first()
 

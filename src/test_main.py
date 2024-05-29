@@ -594,7 +594,7 @@ def test_get_invite_by_id(
     some_invite: schemas.Invite,
 ):
     response = client.get(
-        url=f"/invite/{some_invite.id}",
+        url=f"/invite/{some_invite.token}",
     )
     assert response.status_code == HTTPStatus.OK
     assert schemas.Invite(**response.json()) == some_invite
@@ -602,7 +602,7 @@ def test_get_invite_by_id(
 
 def test_get_invite_by_non_existant_id(client: TestClient):
     response = client.get(
-        url=f"/invite/12345",
+        url=f"/invite/{uuid4().hex}",
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 

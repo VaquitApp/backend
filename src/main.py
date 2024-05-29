@@ -327,10 +327,9 @@ def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
 # INVITES
 ################################################
 
-
-@app.get("/invite/{invite_id}")
-def get_invite(db: DbDependency, invite_id: int):
-    invite = crud.get_invite_by_id(db, invite_id)
+@app.get("/invite/{token}")
+def get_invite(db: DbDependency, token: str):
+    invite = crud.get_invite_by_token(db, token)
     if not invite:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Invitación no existente."
