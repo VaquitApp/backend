@@ -45,8 +45,8 @@ def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
 
-def get_category_by_name(db: Session, category_name: str):
-    return db.query(models.Category).filter(models.Category.name == category_name).first()
+def get_category_by_name_and_group_id(db: Session, category_name: str, group_id: int):
+    return db.query(models.Category).filter(models.Category.name == category_name, models.Category.group_id == group_id).first()
 
 
 ################################################

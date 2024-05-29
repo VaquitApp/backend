@@ -193,7 +193,7 @@ def create_spending(
         )
     
     categories = crud.get_categories_by_group_id(db, group.id)
-    category = crud.get_category_by_name(db, spending.category_name)
+    category = crud.get_category_by_name_and_group_id(db, spending.category_name,group.id)
     if category is None or (category not in categories):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
