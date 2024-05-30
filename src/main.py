@@ -107,6 +107,15 @@ def list_group_categories(db: DbDependency, group_id: int):
 
     return categories
 
+@app.put("/category", status_code=HTTPStatus.OK)
+def update_category(category: schemas.CategoryUpdate , db: DbDependency):
+    category_to_update = crud.get_category(db, category.group_id, category.name)
+    if category_to_update is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+    
+    return crud.update_category(db, category_to_update, category)
 
 ################################################
 # GROUPS

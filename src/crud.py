@@ -33,7 +33,7 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
 
 def create_category(db: Session, category: schemas.CategoryCreate):
     new_category = models.Category(
-        name=category.name, description=category.description, group_id=category.group_id
+        name=category.name, description=category.description, group_id=category.group_id, strategy=category.strategy
     )
     db.add(new_category)
     db.commit()
@@ -43,6 +43,15 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 
 def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
+
+def get_category(db: Session, group_id: int, category_name= str):
+    return db.query(models.Category).filter(models.Category.group_id == group_id, models.Category.name == category_name).first()
+
+def update_category(db: Session, category: models.Category, put_category: schemas.CategoryUpdate):
+    category.name=put_category.new_name
+    db.commit()
+    db.refresh(category)
+    return category
 
 
 ################################################
