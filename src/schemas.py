@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -27,6 +28,10 @@ class User(UserBase):
 
 class UserCredentials(User):
     jwt: str
+
+
+class AddUserToGroupRequest(BaseModel):
+    user_id: int
 
 
 ################################################
@@ -131,6 +136,7 @@ class InviteStatus(StrEnum):
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
     receiver_id: Optional[int] = Field(None)
+    token: Optional[UUID] = Field(None)
     group_id: int
 
 

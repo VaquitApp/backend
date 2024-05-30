@@ -1,5 +1,6 @@
 import datetime
 from http import HTTPStatus
+from uuid import uuid4
 from fastapi.testclient import TestClient
 import pytest
 
@@ -44,6 +45,16 @@ def some_credentials(client: TestClient) -> schemas.UserCredentials:
     response = client.post(
         url="/user/register",
         json={"email": "example@example.com", "password": "my_ultra_secret_password"},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    return schemas.UserCredentials(**response.json())
+
+
+@pytest.fixture()
+def some_other_credentials(client: TestClient) -> schemas.UserCredentials:
+    response = client.post(
+        url="/user/register",
+        json={"email": "example2@example.com", "password": "my_ultra_secret_password"},
     )
     assert response.status_code == HTTPStatus.CREATED
     return schemas.UserCredentials(**response.json())
@@ -181,6 +192,24 @@ def test_get_created_group(
     assert schemas.Group(**response.json()) == some_group
 
 
+def test_get_group_members_with_only_owner(
+    client: TestClient,
+    some_group: schemas.Group,
+    some_credentials: schemas.UserCredentials,
+):
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(body) == 1
+    assert body[0]["id"] == some_credentials.id
+    assert body[0]["email"] == some_credentials.email
+
+
 def test_create_group_for_invalid_user(client: TestClient):
     first_response = client.post(
         url="/group",
@@ -243,7 +272,6 @@ def test_update_group_correctly(
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-
     put_body = {
         "id": some_group.id,
         "name": "TESTING",
@@ -271,6 +299,41 @@ def test_update_group_non_existant(
         url=f"/group", headers={"x-user": some_credentials.jwt}, json=put_body
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_add_user_to_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create new user
+    body = {"email": "some_email@example.com", "password": "some_password"}
+    response = client.post(url="/user/register", json=body)
+    assert response.status_code == HTTPStatus.CREATED
+    user = response.json()
+
+    # Add new user to group
+    response = client.post(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+        json={"user_id": user["id"]},
+    )
+    body = response.json()
+    assert response.status_code == HTTPStatus.CREATED
+    assert len(body) == 2
+    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
+
+    # GET group members
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert len(body) == 2
+    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
 
 
 ################################################
@@ -524,33 +587,28 @@ def test_category_delete(client: TestClient, some_credentials: schemas.UserCrede
 def some_invite(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-
-    # Register Receiver User
-    email = "receiver@example.com"
-    response = client.post(
-        url="/user/register",
-        json={"email": email, "password": "my_ultra_secret_password"},
-    )
-    response_body = response.json()
-    receiver_id = response_body["id"]
-    assert response.status_code == HTTPStatus.CREATED
 
     # Create Invite
     response = client.post(
         url="/invite",
-        json={"receiver_email": email, "group_id": some_group.id},
+        json={
+            "receiver_email": some_other_credentials.email,
+            "group_id": some_group.id,
+        },
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.CREATED
     response_body = response.json()
 
     assert "creation_date" in response_body
+    assert "token" in response_body
     assert response_body["status"] == schemas.InviteStatus.PENDING
     assert response_body["group_id"] == some_group.id
     assert response_body["sender_id"] == some_credentials.id
-    assert response_body["receiver_id"] == receiver_id
+    assert response_body["receiver_id"] == some_other_credentials.id
 
     return schemas.Invite(**response_body)
 
@@ -565,29 +623,15 @@ def test_get_invite_by_id(
     some_invite: schemas.Invite,
 ):
     response = client.get(
-        url=f"/invite/{some_invite.id}",
+        url=f"/invite/{some_invite.token}",
     )
     assert response.status_code == HTTPStatus.OK
     assert schemas.Invite(**response.json()) == some_invite
 
 
-def test_get_all_sent_invites_by_user(
-    client: TestClient,
-    some_credentials: schemas.UserCredentials,
-    some_invite: schemas.Invite,
-):
-    response = client.get(
-        url="/invite",
-        headers={"x-user": some_credentials.jwt},
-    )
-    assert response.status_code == HTTPStatus.OK
-    assert len(response.json()) == 1
-    assert schemas.Invite(**response.json()[0]) == some_invite
-
-
 def test_get_invite_by_non_existant_id(client: TestClient):
     response = client.get(
-        url=f"/invite/12345",
+        url=f"/invite/{uuid4().hex}",
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -617,25 +661,30 @@ def test_send_group_invite_non_existant_group(
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_send_group_invite_from_non_group_owner(
+def test_send_group_invite_to_already_member(
     client: TestClient,
+    some_group: schemas.Group,
     some_credentials: schemas.UserCredentials,
 ):
-
-    # Other User
-    email = "example2@example.com"
     response = client.post(
-        url="/user/register",
-        json={"email": email, "password": "my_ultra_secret_password"},
+        url="/invite",
+        json={"receiver_email": some_credentials.email, "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.CREATED
-    other_jwt = response.json()["jwt"]
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_send_group_invite_from_non_group_member(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+):
 
     # Other Group
     response = client.post(
         url="/group",
         json={"name": "grupo 2", "description": "really long description 1234"},
-        headers={"x-user": other_jwt},
+        headers={"x-user": some_other_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.CREATED
     new_group_id = response.json()["id"]
@@ -643,7 +692,91 @@ def test_send_group_invite_from_non_group_owner(
     # Send Invite With Wrong Owner
     response = client.post(
         url="/invite",
-        json={"receiver_email": email, "group_id": new_group_id},
+        json={"receiver_email": some_credentials.email, "group_id": new_group_id},
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_join_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_invite: schemas.Invite,
+):
+    response = client.post(
+        url=f"/invite/join/{some_invite.token.hex}",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert schemas.Invite(**response.json()).status == schemas.InviteStatus.ACCEPTED
+
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert len(response.json()) == 2
+
+
+def test_try_join_invalid_token(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+):
+    response = client.post(
+        url=f"/invite/join/{uuid4().hex}",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_try_join_group_as_wrong_user(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_invite: schemas.Invite,
+):
+
+    response = client.post(
+        url=f"/invite/join/{some_invite.token.hex}",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_try_join_archived_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_invite: schemas.Invite,
+):
+
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url=f"/invite/join/{some_invite.token.hex}",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_try_join_already_member(
+    client: TestClient,
+    some_other_credentials: schemas.UserCredentials,
+    some_invite: schemas.Invite,
+):
+
+    response = client.post(
+        url=f"/invite/join/{some_invite.token.hex}",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url=f"/invite/join/{some_invite.token.hex}",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
