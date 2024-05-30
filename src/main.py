@@ -109,6 +109,16 @@ def list_group_categories(db: DbDependency, group_id: int):
     return categories
 
 
+@app.delete("/category", status_code=HTTPStatus.OK)
+def delete_category(category: schemas.CategoryBase , db: DbDependency):
+    category_to_delete = crud.get_category(db, category.group_id, category.name)
+    if category_to_delete is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    return crud.delete_category(db, category_to_delete)
+
 ################################################
 # GROUPS
 ################################################

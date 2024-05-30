@@ -57,6 +57,7 @@ class Category(Base):
     name = Column(String, primary_key=True)
     description = Column(String)
     group_id = Column(ForeignKey("groups.id"), primary_key=True)
+    strategy = Column(String)
 
 
 class Spending(Base):
