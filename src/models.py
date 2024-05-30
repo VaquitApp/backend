@@ -14,7 +14,6 @@ from sqlalchemy import (
     UUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from src.schemas import InviteStatus
 from src.database import Base
 
@@ -45,7 +44,7 @@ class Group(Base):
     owner_id = Column(ForeignKey("users.id"))
     name = Column(String)
     description = Column(String)
-    is_archived = Column(Boolean)
+    is_archived = Column(Boolean) 
     members: Mapped[Set[User]] = relationship(
         secondary=user_to_group_table, back_populates="groups"
     )
@@ -66,6 +65,7 @@ class Spending(Base):
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
+    category_name = Column(String)
     amount = Column(Integer)
     description = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())

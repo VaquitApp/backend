@@ -300,6 +300,31 @@ def test_update_group_non_existant(
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 
+################################################
+# CATEGORIES
+################################################
+
+@pytest.fixture
+def some_category(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/category",
+        json={"name": "cafe", "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert response_body["name"] == "cafe"
+    assert response_body["group_id"] == some_group.id
+    return response_body
+
+def test_create_new_category(client: TestClient, some_category: schemas.Category):
+    # NOTE: test is inside fixture
+    pass
 
 def test_add_user_to_group(
     client: TestClient,
@@ -346,6 +371,7 @@ def some_spending(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
+    some_category: schemas.Category
 ):
     response = client.post(
         url="/spending",
@@ -354,6 +380,7 @@ def some_spending(
             "description": "bought some féca",
             "date": "2021-01-01",
             "group_id": some_group.id,
+            "category_name": some_category.name 
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -362,6 +389,8 @@ def some_spending(
     response_body = response.json()
     assert "id" in response_body
     assert response_body["group_id"] == some_group.id
+    assert response_body["category_name"] == some_category.name
+    assert response_body
     return schemas.Spending(**response_body)
 
 
@@ -374,6 +403,7 @@ def test_create_new_spending_with_default_date(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
+    some_category: schemas.Category
 ):
     response = client.post(
         url="/spending",
@@ -381,6 +411,7 @@ def test_create_new_spending_with_default_date(
             "amount": 500,
             "description": "bought some féca",
             "group_id": some_group.id,
+            "category_name": some_category.name
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -388,8 +419,26 @@ def test_create_new_spending_with_default_date(
     response_body = response.json()
     assert "id" in response_body
     assert response_body["group_id"] == some_group.id
+    assert response_body["category_name"] == some_category.name
     assert datetime.datetime.fromisoformat(response_body["date"])
 
+def test_create_new_spending_with_non_existant_category(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_name": "luz"
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    
 
 def test_get_spendings(
     client: TestClient,
@@ -410,6 +459,7 @@ def test_create_spending_on_archived_group(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
+    some_category: schemas.Category
 ):
 
     response = client.put(
@@ -423,6 +473,7 @@ def test_create_spending_on_archived_group(
             "amount": 500,
             "description": "bought some féca",
             "group_id": some_group.id,
+            "category_name": some_category.name
         },
         headers={"x-user": some_credentials.jwt},
     )

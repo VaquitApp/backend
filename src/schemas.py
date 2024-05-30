@@ -85,11 +85,13 @@ class SpendingBase(BaseModel):
     description: str
     date: Optional[datetime] = Field(None)
     group_id: int
-
+    category_name: str
 
 class SpendingCreate(SpendingBase):
     pass
 
+class SpendingPut(SpendingBase):
+    pass
 
 class Spending(SpendingBase):
     id: int

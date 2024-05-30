@@ -238,8 +238,7 @@ def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
 
 @app.post("/spending", status_code=HTTPStatus.CREATED)
 def create_spending(
-    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
-):
+    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency):
     group = crud.get_group_by_id(db, spending.group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
@@ -249,7 +248,14 @@ def create_spending(
             status_code=HTTPStatus.NOT_ACCEPTABLE,
             detail="El grupo esta archivado, no se pueden seguir agregando gastos.",
         )
-
+    
+    categories = crud.get_categories_by_group_id(db, group.id)
+    category = crud.get_category_by_name_and_group_id(db, spending.category_name,group.id)
+    if category is None or (category not in categories):
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+    
     return crud.create_spending(db, spending, user.id)
 
 

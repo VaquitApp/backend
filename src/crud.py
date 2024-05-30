@@ -53,6 +53,10 @@ def delete_category(db: Session, category: models.Category):
     db.commit()
     return {"message": "Categoria eliminada exitosamente!"}
 
+def get_category_by_name_and_group_id(db: Session, category_name: str, group_id: int):
+    return db.query(models.Category).filter(models.Category.name == category_name, models.Category.group_id == group_id).first()
+
+
 ################################################
 # GROUPS
 ################################################
@@ -128,11 +132,18 @@ def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int)
     db.refresh(db_spending)
     return db_spending
 
-
 def get_spendings_by_group_id(db: Session, group_id: int):
     return (
         db.query(models.Spending)
         .filter(models.Spending.group_id == group_id)
+        .limit(100)
+        .all()
+    )
+
+def get_spendings_by_category(db: Session, category_name:str): 
+    return (
+        db.query(models.Spending)
+        .filter(models.Spending.category_name == category_name)
         .limit(100)
         .all()
     )
