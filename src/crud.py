@@ -1,5 +1,6 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
-import hashlib
+from uuid import UUID
 
 from src import models, schemas, auth
 
@@ -44,6 +45,13 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
+def get_category(db: Session, group_id: int, category_name= str):
+    return db.query(models.Category).filter(models.Category.group_id == group_id, models.Category.name == category_name).first()
+
+def delete_category(db: Session, category: models.Category):
+    db.delete(category)
+    db.commit()
+    return {"message": "Categoria eliminada exitosamente!"}
 
 def get_category_by_name_and_group_id(db: Session, category_name: str, group_id: int):
     return db.query(models.Category).filter(models.Category.name == category_name, models.Category.group_id == group_id).first()
@@ -55,6 +63,7 @@ def get_category_by_name_and_group_id(db: Session, category_name: str, group_id:
 
 
 def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
+    # Create the group
     db_group = models.Group(
         owner_id=user_id,
         name=group.name,
@@ -62,6 +71,11 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
         is_archived=False,
     )
     db.add(db_group)
+
+    # Add the owner to the group members
+    db_user = get_user_by_id(db, user_id)
+    db_user.groups.add(db_group)
+
     db.commit()
     db.refresh(db_group)
     return db_group
@@ -75,11 +89,14 @@ def update_group(db: Session, db_group: models.Group, put_group: schemas.GroupUp
     return db_group
 
 
-def get_groups_by_owner_id(db: Session, owner_id: int):
+def get_groups_by_user_id(db: Session, user_id: int):
     return (
-        db.query(models.Group)
-        .filter(models.Group.owner_id == owner_id)
-        .limit(100)
+        db.execute(
+            select(models.Group)
+            .where(models.Group.members.any(models.User.id == user_id))
+            .limit(100)
+        )
+        .scalars()
         .all()
     )
 
@@ -90,6 +107,14 @@ def get_group_by_id(db: Session, group_id: int):
 
 def update_group_status(db: Session, group: models.Group, status: bool):
     group.is_archived = status
+    db.commit()
+    db.refresh(group)
+    return group
+
+
+def add_user_to_group(db: Session, group: models.Group, user_id: int):
+    user = get_user_by_id(db, user_id)
+    group.members.add(user)
     db.commit()
     db.refresh(group)
     return group
@@ -165,28 +190,30 @@ def get_budgets_by_group_id(db: Session, group_id: int):
 # INVITES
 ################################################
 
-
-def get_invite_by_id(db: Session, invite_id: int):
-    return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
-
-
-def get_sent_invites_by_user(db: Session, user_id: int):
-    return (
-        db.query(models.Invite)
-        .filter(models.Invite.sender_id == user_id)
-        .limit(10)
-        .all()
-    )
+def get_invite_by_token(db: Session, token: str):
+    return db.query(models.Invite).filter(models.Invite.token == UUID(token)).first()
 
 
-def create_invite(db: Session, sender_id: int, invite: schemas.InviteCreate):
+def create_invite(
+    db: Session, sender_id: int, token: UUID, invite: schemas.InviteCreate
+):
     db_invite = models.Invite(
         sender_id=sender_id,
         receiver_id=invite.receiver_id,
         group_id=invite.group_id,
+        token=token,
         status=schemas.InviteStatus.PENDING,
     )
     db.add(db_invite)
+    db.commit()
+    db.refresh(db_invite)
+    return db_invite
+
+
+def update_invite_status(
+    db: Session, db_invite: models.Invite, status: schemas.InviteStatus
+):
+    db_invite.status = status
     db.commit()
     db.refresh(db_invite)
     return db_invite
