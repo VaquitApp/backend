@@ -300,9 +300,11 @@ def test_update_group_non_existant(
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 
+
 ################################################
 # CATEGORIES
 ################################################
+
 
 @pytest.fixture
 def some_category(
@@ -322,9 +324,11 @@ def some_category(
     assert response_body["group_id"] == some_group.id
     return response_body
 
+
 def test_create_new_category(client: TestClient, some_category: schemas.Category):
     # NOTE: test is inside fixture
     pass
+
 
 def test_add_user_to_group(
     client: TestClient,
@@ -371,7 +375,7 @@ def some_spending(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
-    some_category: schemas.Category
+    some_category: schemas.Category,
 ):
     response = client.post(
         url="/spending",
@@ -380,7 +384,7 @@ def some_spending(
             "description": "bought some féca",
             "date": "2021-01-01",
             "group_id": some_group.id,
-            "category_name": some_category.name 
+            "category_id": some_category.id,
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -389,7 +393,7 @@ def some_spending(
     response_body = response.json()
     assert "id" in response_body
     assert response_body["group_id"] == some_group.id
-    assert response_body["category_name"] == some_category.name
+    assert response_body["category_id"] == some_category.id
     assert response_body
     return schemas.Spending(**response_body)
 
@@ -403,7 +407,7 @@ def test_create_new_spending_with_default_date(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
-    some_category: schemas.Category
+    some_category: schemas.Category,
 ):
     response = client.post(
         url="/spending",
@@ -411,7 +415,7 @@ def test_create_new_spending_with_default_date(
             "amount": 500,
             "description": "bought some féca",
             "group_id": some_group.id,
-            "category_name": some_category.name
+            "category_id": some_category.id,
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -419,8 +423,9 @@ def test_create_new_spending_with_default_date(
     response_body = response.json()
     assert "id" in response_body
     assert response_body["group_id"] == some_group.id
-    assert response_body["category_name"] == some_category.name
+    assert response_body["category_id"] == some_category.id
     assert datetime.datetime.fromisoformat(response_body["date"])
+
 
 def test_create_new_spending_with_non_existant_category(
     client: TestClient,
@@ -433,12 +438,12 @@ def test_create_new_spending_with_non_existant_category(
             "amount": 500,
             "description": "bought some féca",
             "group_id": some_group.id,
-            "category_name": "luz"
+            "category_id": 61623,
         },
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
-    
+
 
 def test_get_spendings(
     client: TestClient,
@@ -459,7 +464,7 @@ def test_create_spending_on_archived_group(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
-    some_category: schemas.Category
+    some_category: schemas.Category,
 ):
 
     response = client.put(
@@ -473,7 +478,7 @@ def test_create_spending_on_archived_group(
             "amount": 500,
             "description": "bought some féca",
             "group_id": some_group.id,
-            "category_name": some_category.name
+            "category_id": some_category.id,
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -599,34 +604,70 @@ def test_create_budget_on_archived_group(
     )
     assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
 
+
 ################################################
 # CATEGORIES
 ################################################
 # TODO
 @pytest.fixture()
-def some_category(client: TestClient, some_credentials: schemas.UserCredentials, some_group: schemas.Group):
+def some_category(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
     response = client.post(
         url="/category",
-        json={"name": "nombre_categoria", "description": "really long description 1234", "group_id": 1, "strategy": "a cool strategy"},
+        json={
+            "name": "nombre_categoria",
+            "description": "really long description 1234",
+            "group_id": 1,
+            "strategy": "a cool strategy",
+        },
         headers={"x-user": some_credentials.jwt},
     )
 
     assert response.status_code == HTTPStatus.CREATED
     response_body = response.json()
     assert response_body["group_id"] == some_group.id
-    return schemas.CategoryBase(**response_body)
+    return schemas.Category(**response_body)
 
-def test_category_delete(client: TestClient, some_credentials: schemas.UserCredentials, some_group: schemas.Group, some_category: schemas.Category):
+
+def test_category_delete(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_category: schemas.Category,
+):
     response = client.request(
         method="DELETE",
-        url="/category",
-        json={"name": some_category.name, "group_id": some_group.id},
+        url=f"/category/{some_category.id}",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == some_category.model_dump()
+
+
+def test_category_modify_name(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_category: schemas.Category,
+):
+    response = client.put(
+        url=f"/category/{some_category.id}",
+        json={
+            "name": "nuevo nombre categoria",
+            "description": "otra descripcion",
+            # TODO: move strategy to enums
+            "strategy": "equitativo?",
+        },
         headers={"x-user": some_credentials.jwt},
     )
 
     assert response.status_code == HTTPStatus.OK
     response_body = response.json()
-    assert response_body["message"] == "Categoria eliminada exitosamente!"
+    assert "group_id" in response_body
+    assert response_body["name"] == "nuevo nombre categoria"
+    assert response_body["description"] == "otra descripcion"
 
 
 ################################################

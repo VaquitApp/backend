@@ -95,7 +95,7 @@ def create_category(category: schemas.CategoryCreate, db: DbDependency):
     return crud.create_category(db, category)
 
 
-@app.get("/category/{group_id}")
+@app.get("/category")
 def list_group_categories(db: DbDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
@@ -109,15 +109,29 @@ def list_group_categories(db: DbDependency, group_id: int):
     return categories
 
 
-@app.delete("/category", status_code=HTTPStatus.OK)
-def delete_category(category: schemas.CategoryBase , db: DbDependency):
-    category_to_delete = crud.get_category(db, category.group_id, category.name)
+@app.put("/category/{category_id}")
+def update_category(
+    category_update: schemas.CategoryUpdate, db: DbDependency, category_id: int
+):
+    category = crud.get_category_by_id(db, category_id)
+    if category is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    return crud.update_category(db, category, category_update)
+
+
+@app.delete("/category/{category_id}")
+def delete_category(db: DbDependency, category_id: int):
+    category_to_delete = crud.get_category_by_id(db, category_id)
     if category_to_delete is None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
 
     return crud.delete_category(db, category_to_delete)
+
 
 ################################################
 # GROUPS
@@ -238,7 +252,8 @@ def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
 
 @app.post("/spending", status_code=HTTPStatus.CREATED)
 def create_spending(
-    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency):
+    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
+):
     group = crud.get_group_by_id(db, spending.group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
@@ -248,14 +263,13 @@ def create_spending(
             status_code=HTTPStatus.NOT_ACCEPTABLE,
             detail="El grupo esta archivado, no se pueden seguir agregando gastos.",
         )
-    
-    categories = crud.get_categories_by_group_id(db, group.id)
-    category = crud.get_category_by_name_and_group_id(db, spending.category_name,group.id)
-    if category is None or (category not in categories):
+
+    category = crud.get_category_by_id(db, spending.category_id)
+    if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
-    
+
     return crud.create_spending(db, spending, user.id)
 
 
@@ -342,6 +356,7 @@ def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
 ################################################
 # INVITES
 ################################################
+
 
 @app.get("/invite/{token}")
 def get_invite(db: DbDependency, token: str):

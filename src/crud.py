@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -34,7 +34,10 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
 
 def create_category(db: Session, category: schemas.CategoryCreate):
     new_category = models.Category(
-        name=category.name, description=category.description, group_id=category.group_id
+        group_id=category.group_id,
+        name=category.name,
+        description=category.description,
+        strategy=category.strategy,
     )
     db.add(new_category)
     db.commit()
@@ -45,16 +48,26 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
-def get_category(db: Session, group_id: int, category_name= str):
-    return db.query(models.Category).filter(models.Category.group_id == group_id, models.Category.name == category_name).first()
+
+def get_category_by_id(db: Session, id: int):
+    return db.query(models.Category).filter(models.Category.id == id).first()
+
 
 def delete_category(db: Session, category: models.Category):
     db.delete(category)
     db.commit()
-    return {"message": "Categoria eliminada exitosamente!"}
+    return category
 
-def get_category_by_name_and_group_id(db: Session, category_name: str, group_id: int):
-    return db.query(models.Category).filter(models.Category.name == category_name, models.Category.group_id == group_id).first()
+
+def update_category(
+    db: Session, category: models.Category, category_update: schemas.CategoryUpdate
+):
+    category.name = category_update.name
+    category.description = category_update.description
+    category.strategy = category_update.strategy
+    db.commit()
+    db.refresh(category)
+    return category
 
 
 ################################################
@@ -132,6 +145,7 @@ def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int)
     db.refresh(db_spending)
     return db_spending
 
+
 def get_spendings_by_group_id(db: Session, group_id: int):
     return (
         db.query(models.Spending)
@@ -140,10 +154,11 @@ def get_spendings_by_group_id(db: Session, group_id: int):
         .all()
     )
 
-def get_spendings_by_category(db: Session, category_name:str): 
+
+def get_spendings_by_category(db: Session, category_id: int):
     return (
         db.query(models.Spending)
-        .filter(models.Spending.category_name == category_name)
+        .filter(models.Spending.category_id == category_id)
         .limit(100)
         .all()
     )
@@ -189,6 +204,7 @@ def get_budgets_by_group_id(db: Session, group_id: int):
 ################################################
 # INVITES
 ################################################
+
 
 def get_invite_by_token(db: Session, token: str):
     return db.query(models.Invite).filter(models.Invite.token == UUID(token)).first()

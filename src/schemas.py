@@ -41,13 +41,20 @@ class AddUserToGroupRequest(BaseModel):
 
 class CategoryBase(BaseModel):
     name: str
-    group_id: int
-
-class CategoryCreate(CategoryBase):
     description: str
     strategy: str
 
+
 class Category(CategoryBase):
+    id: int
+    group_id: int
+
+
+class CategoryCreate(CategoryBase):
+    group_id: int
+
+
+class CategoryUpdate(CategoryBase):
     pass
 
 
@@ -85,13 +92,16 @@ class SpendingBase(BaseModel):
     description: str
     date: Optional[datetime] = Field(None)
     group_id: int
-    category_name: str
+    category_id: int
+
 
 class SpendingCreate(SpendingBase):
     pass
 
+
 class SpendingPut(SpendingBase):
     pass
+
 
 class Spending(SpendingBase):
     id: int

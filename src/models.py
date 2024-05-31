@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Boolean,
     Table,
+    UniqueConstraint,
     func,
     Enum,
     UUID,
@@ -44,7 +45,7 @@ class Group(Base):
     owner_id = Column(ForeignKey("users.id"))
     name = Column(String)
     description = Column(String)
-    is_archived = Column(Boolean) 
+    is_archived = Column(Boolean)
     members: Mapped[Set[User]] = relationship(
         secondary=user_to_group_table, back_populates="groups"
     )
@@ -53,10 +54,14 @@ class Group(Base):
 class Category(Base):
     __tablename__ = "categories"
 
-    name = Column(String, primary_key=True)
+    id = Column(Integer, primary_key=True)
+    group_id = Column(ForeignKey("groups.id"))
+    name = Column(String)
     description = Column(String)
-    group_id = Column(ForeignKey("groups.id"), primary_key=True)
+    # TODO: move strategy to enums
     strategy = Column(String)
+
+    __table_args__ = (UniqueConstraint("group_id", "name"),)
 
 
 class Spending(Base):
@@ -65,7 +70,7 @@ class Spending(Base):
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
-    category_name = Column(String)
+    category_id = Column(ForeignKey("categories.id"))
     amount = Column(Integer)
     description = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
@@ -76,7 +81,7 @@ class Budget(Base):
 
     id = Column(Integer, primary_key=True)
     group_id = Column(ForeignKey("groups.id"))
-    category_id = Column(Integer)  # TODO: Column(ForeignKey("categories.id"))
+    category_id = Column(ForeignKey("categories.id"))
     start_date: Mapped[datetime] = mapped_column(DateTime)
     end_date: Mapped[datetime] = mapped_column(DateTime)
     amount = Column(Integer)
