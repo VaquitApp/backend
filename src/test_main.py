@@ -494,6 +494,7 @@ def test_create_spending_on_archived_group(
 def some_budget(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
+    some_category: schemas.Category,
     some_group: schemas.Group,
 ):
     response = client.post(
@@ -504,7 +505,7 @@ def some_budget(
             "start_date": "2021-01-01",
             "end_date": "2021-02-01",
             "group_id": some_group.id,
-            "category_id": 1,
+            "category_id": some_category.id,
         },
         headers={"x-user": some_credentials.jwt},
     )
