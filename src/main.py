@@ -95,20 +95,6 @@ def create_category(category: schemas.CategoryCreate, db: DbDependency):
     return crud.create_category(db, category)
 
 
-@app.get("/category")
-def list_group_categories(db: DbDependency, group_id: int):
-    group = crud.get_group_by_id(db, group_id)
-
-    if group is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
-
-    categories = crud.get_categories_by_group_id(db, group_id)
-
-    return categories
-
-
 @app.put("/category/{category_id}")
 def update_category(
     category_update: schemas.CategoryUpdate, db: DbDependency, category_id: int
@@ -131,6 +117,20 @@ def delete_category(db: DbDependency, category_id: int):
         )
 
     return crud.delete_category(db, category_to_delete)
+
+
+@app.get("/group/{group_id}/category")
+def list_group_categories(db: DbDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+
+    if group is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
+        )
+
+    categories = crud.get_categories_by_group_id(db, group_id)
+
+    return categories
 
 
 ################################################
