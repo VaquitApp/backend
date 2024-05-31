@@ -301,35 +301,6 @@ def test_update_group_non_existant(
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
-################################################
-# CATEGORIES
-################################################
-
-
-@pytest.fixture
-def some_category(
-    client: TestClient,
-    some_credentials: schemas.UserCredentials,
-    some_group: schemas.Group,
-):
-    response = client.post(
-        url="/category",
-        json={"name": "cafe", "group_id": some_group.id},
-        headers={"x-user": some_credentials.jwt},
-    )
-
-    assert response.status_code == HTTPStatus.CREATED
-    response_body = response.json()
-    assert response_body["name"] == "cafe"
-    assert response_body["group_id"] == some_group.id
-    return response_body
-
-
-def test_create_new_category(client: TestClient, some_category: schemas.Category):
-    # NOTE: test is inside fixture
-    pass
-
-
 def test_add_user_to_group(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
@@ -610,8 +581,13 @@ def test_create_budget_on_archived_group(
 ################################################
 # CATEGORIES
 ################################################
-# TODO
-@pytest.fixture()
+
+################################################
+# CATEGORIES
+################################################
+
+
+@pytest.fixture
 def some_category(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
@@ -620,9 +596,9 @@ def some_category(
     response = client.post(
         url="/category",
         json={
-            "name": "nombre_categoria",
+            "name": "cafe",
             "description": "really long description 1234",
-            "group_id": 1,
+            "group_id": some_group.id,
             "strategy": "a cool strategy",
         },
         headers={"x-user": some_credentials.jwt},
@@ -630,8 +606,14 @@ def some_category(
 
     assert response.status_code == HTTPStatus.CREATED
     response_body = response.json()
+    assert response_body["name"] == "cafe"
     assert response_body["group_id"] == some_group.id
     return schemas.Category(**response_body)
+
+
+def test_create_new_category(client: TestClient, some_category: schemas.Category):
+    # NOTE: test is inside fixture
+    pass
 
 
 def test_category_delete(
@@ -639,8 +621,7 @@ def test_category_delete(
     some_credentials: schemas.UserCredentials,
     some_category: schemas.Category,
 ):
-    response = client.request(
-        method="DELETE",
+    response = client.delete(
         url=f"/category/{some_category.id}",
         headers={"x-user": some_credentials.jwt},
     )
