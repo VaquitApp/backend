@@ -546,7 +546,7 @@ def test_put_budget(
         "description": "some other description",
         "start_date": "2021-03-01T00:00:00",
         "end_date": "2021-04-01T00:00:00",
-        "category_id": 2,
+        "category_id": some_budget.category_id,
     }
     response = client.put(
         url=f"/budget/{some_budget.id}",
@@ -584,6 +584,7 @@ def test_create_budget_on_archived_group(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
+    some_category: schemas.Category,
 ):
 
     response = client.put(
@@ -599,7 +600,7 @@ def test_create_budget_on_archived_group(
             "start_date": "2021-01-01",
             "end_date": "2021-02-01",
             "group_id": some_group.id,
-            "category_id": 1,
+            "category_id": some_category.id,
         },
         headers={"x-user": some_credentials.jwt},
     )
