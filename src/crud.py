@@ -1,5 +1,6 @@
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
-import hashlib
+from uuid import UUID
 
 from src import models, schemas, auth
 
@@ -33,7 +34,10 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
 
 def create_category(db: Session, category: schemas.CategoryCreate):
     new_category = models.Category(
-        name=category.name, description=category.description, group_id=category.group_id, strategy=category.strategy
+        group_id=category.group_id,
+        name=category.name,
+        description=category.description,
+        strategy=category.strategy,
     )
     db.add(new_category)
     db.commit()
@@ -44,11 +48,23 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 def get_categories_by_group_id(db: Session, group_id: int):
     return db.query(models.Category).filter(models.Category.group_id == group_id).all()
 
-def get_category(db: Session, group_id: int, category_name= str):
-    return db.query(models.Category).filter(models.Category.group_id == group_id, models.Category.name == category_name).first()
 
-def update_category(db: Session, category: models.Category, put_category: schemas.CategoryUpdate):
-    category.name=put_category.new_name
+def get_category_by_id(db: Session, id: int):
+    return db.query(models.Category).filter(models.Category.id == id).first()
+
+
+def delete_category(db: Session, category: models.Category):
+    db.delete(category)
+    db.commit()
+    return category
+
+
+def update_category(
+    db: Session, category: models.Category, category_update: schemas.CategoryUpdate
+):
+    category.name = category_update.name
+    category.description = category_update.description
+    category.strategy = category_update.strategy
     db.commit()
     db.refresh(category)
     return category
@@ -60,6 +76,7 @@ def update_category(db: Session, category: models.Category, put_category: schema
 
 
 def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
+    # Create the group
     db_group = models.Group(
         owner_id=user_id,
         name=group.name,
@@ -67,6 +84,11 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
         is_archived=False,
     )
     db.add(db_group)
+
+    # Add the owner to the group members
+    db_user = get_user_by_id(db, user_id)
+    db_user.groups.add(db_group)
+
     db.commit()
     db.refresh(db_group)
     return db_group
@@ -80,11 +102,14 @@ def update_group(db: Session, db_group: models.Group, put_group: schemas.GroupUp
     return db_group
 
 
-def get_groups_by_owner_id(db: Session, owner_id: int):
+def get_groups_by_user_id(db: Session, user_id: int):
     return (
-        db.query(models.Group)
-        .filter(models.Group.owner_id == owner_id)
-        .limit(100)
+        db.execute(
+            select(models.Group)
+            .where(models.Group.members.any(models.User.id == user_id))
+            .limit(100)
+        )
+        .scalars()
         .all()
     )
 
@@ -95,6 +120,14 @@ def get_group_by_id(db: Session, group_id: int):
 
 def update_group_status(db: Session, group: models.Group, status: bool):
     group.is_archived = status
+    db.commit()
+    db.refresh(group)
+    return group
+
+
+def add_user_to_group(db: Session, group: models.Group, user_id: int):
+    user = get_user_by_id(db, user_id)
+    group.members.add(user)
     db.commit()
     db.refresh(group)
     return group
@@ -117,6 +150,15 @@ def get_spendings_by_group_id(db: Session, group_id: int):
     return (
         db.query(models.Spending)
         .filter(models.Spending.group_id == group_id)
+        .limit(100)
+        .all()
+    )
+
+
+def get_spendings_by_category(db: Session, category_id: int):
+    return (
+        db.query(models.Spending)
+        .filter(models.Spending.category_id == category_id)
         .limit(100)
         .all()
     )
@@ -164,27 +206,30 @@ def get_budgets_by_group_id(db: Session, group_id: int):
 ################################################
 
 
-def get_invite_by_id(db: Session, invite_id: int):
-    return db.query(models.Invite).filter(models.Invite.id == invite_id).first()
+def get_invite_by_token(db: Session, token: str):
+    return db.query(models.Invite).filter(models.Invite.token == UUID(token)).first()
 
 
-def get_sent_invites_by_user(db: Session, user_id: int):
-    return (
-        db.query(models.Invite)
-        .filter(models.Invite.sender_id == user_id)
-        .limit(10)
-        .all()
-    )
-
-
-def create_invite(db: Session, sender_id: int, invite: schemas.InviteCreate):
+def create_invite(
+    db: Session, sender_id: int, token: UUID, invite: schemas.InviteCreate
+):
     db_invite = models.Invite(
         sender_id=sender_id,
         receiver_id=invite.receiver_id,
         group_id=invite.group_id,
+        token=token,
         status=schemas.InviteStatus.PENDING,
     )
     db.add(db_invite)
+    db.commit()
+    db.refresh(db_invite)
+    return db_invite
+
+
+def update_invite_status(
+    db: Session, db_invite: models.Invite, status: schemas.InviteStatus
+):
+    db_invite.status = status
     db.commit()
     db.refresh(db_invite)
     return db_invite
