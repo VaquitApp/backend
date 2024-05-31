@@ -95,6 +95,17 @@ def create_category(category: schemas.CategoryCreate, db: DbDependency):
     return crud.create_category(db, category)
 
 
+@app.get("/category/{category_id}")
+def update_category(db: DbDependency, category_id: int):
+    category = crud.get_category_by_id(db, category_id)
+    if category is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    return category
+
+
 @app.put("/category/{category_id}")
 def update_category(
     category_update: schemas.CategoryUpdate, db: DbDependency, category_id: int
