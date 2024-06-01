@@ -81,72 +81,16 @@ def login(user: schemas.UserLogin, db: DbDependency) -> schemas.UserCredentials:
 
 
 ################################################
-# CATEGORIES
-################################################
-
-
-@app.post("/category", status_code=HTTPStatus.CREATED)
-def create_category(category: schemas.CategoryCreate, db: DbDependency):
-    group = crud.get_group_by_id(db, category.group_id)
-    if group is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
-    return crud.create_category(db, category)
-
-
-@app.get("/category/{category_id}")
-def update_category(db: DbDependency, category_id: int):
-    category = crud.get_category_by_id(db, category_id)
-    if category is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
-        )
-
-    return category
-
-
-@app.put("/category/{category_id}")
-def update_category(
-    category_update: schemas.CategoryUpdate, db: DbDependency, category_id: int
-):
-    category = crud.get_category_by_id(db, category_id)
-    if category is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
-        )
-
-    return crud.update_category(db, category, category_update)
-
-
-@app.delete("/category/{category_id}")
-def delete_category(db: DbDependency, category_id: int):
-    category_to_delete = crud.get_category_by_id(db, category_id)
-    if category_to_delete is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
-        )
-
-    return crud.delete_category(db, category_to_delete)
-
-
-@app.get("/group/{group_id}/category")
-def list_group_categories(db: DbDependency, group_id: int):
-    group = crud.get_group_by_id(db, group_id)
-
-    if group is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
-        )
-
-    categories = crud.get_categories_by_group_id(db, group_id)
-
-    return categories
-
-
-################################################
 # GROUPS
 ################################################
+
+
+def check_group_is_unarchived(group: models.Group):
+    if group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            detail="El grupo esta archivado, no se pueden realizar modificaciones",
+        )
 
 
 def user_id_in_group(user_id: int, group: models.Group) -> bool:
@@ -190,6 +134,7 @@ def update_group(
     group_to_update = crud.get_group_by_id(db, put_group.id)
 
     check_group_exists_and_user_is_owner(user.id, group_to_update)
+    check_group_is_unarchived(group_to_update)
 
     return crud.update_group(db, group_to_update, put_group)
 
@@ -218,6 +163,7 @@ def add_user_to_group(
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_owner(user.id, group)
+    check_group_is_unarchived(group)
 
     crud.add_user_to_group(db, group, req.user_id)
 
@@ -231,9 +177,6 @@ def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
     check_group_exists_and_user_is_member(user.id, group)
 
     return group.members
-
-
-# TODO: CUANDO TERMINEN IMPLEMENTAR EL INVITE Y JOIN, NO DEJEN INVITAR NI ACEPTAR NI NADA SI EL GRUPO ESTA ARCHIVADO.
 
 
 @app.put("/group/{group_id}/archive", status_code=HTTPStatus.OK)
@@ -257,6 +200,74 @@ def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
 
 
 ################################################
+# CATEGORIES
+################################################
+
+
+@app.post("/category", status_code=HTTPStatus.CREATED)
+def create_category(
+    category: schemas.CategoryCreate,
+    db: DbDependency,
+    user: UserDependency,
+):
+    group = crud.get_group_by_id(db, category.group_id)
+    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_is_unarchived(group)
+    return crud.create_category(db, category)
+
+
+@app.get("/category/{category_id}")
+def get_category(db: DbDependency, user: UserDependency, category_id: int):
+    category = crud.get_category_by_id(db, category_id)
+    if category is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+    group = crud.get_group_by_id(db, category.group_id)
+    check_group_exists_and_user_is_member(user.id, group)
+    return category
+
+
+@app.put("/category/{category_id}")
+def update_category(
+    category_update: schemas.CategoryUpdate,
+    db: DbDependency,
+    user: UserDependency,
+    category_id: int,
+):
+    category = crud.get_category_by_id(db, category_id)
+    if category is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+    group = crud.get_group_by_id(db, category.group_id)
+    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_is_unarchived(group)
+    return crud.update_category(db, category, category_update)
+
+
+@app.delete("/category/{category_id}")
+def delete_category(db: DbDependency, user: UserDependency, category_id: int):
+    category = crud.get_category_by_id(db, category_id)
+    if category is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+    group = crud.get_group_by_id(db, category.group_id)
+    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_is_unarchived(group)
+    return crud.delete_category(db, category)
+
+
+@app.get("/group/{group_id}/category")
+def list_group_categories(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    check_group_exists_and_user_is_member(user.id, group)
+    categories = crud.get_categories_by_group_id(db, group_id)
+    return categories
+
+
+################################################
 # SPENDINGS
 ################################################
 
@@ -268,12 +279,7 @@ def create_spending(
     group = crud.get_group_by_id(db, spending.group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
-
-    if group.is_archived:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_ACCEPTABLE,
-            detail="El grupo esta archivado, no se pueden seguir agregando gastos.",
-        )
+    check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
     if category is None or category.group_id != spending.group_id:
@@ -314,12 +320,8 @@ def create_budget(
     group = crud.get_group_by_id(db, spending.group_id)
 
     check_group_exists_and_user_is_owner(user.id, group)
+    check_group_is_unarchived(group)
 
-    if group.is_archived:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_ACCEPTABLE,
-            detail="El grupo esta archivado, no se pueden seguir agregando presupuestos.",
-        )
     return crud.create_budget(db, spending)
 
 
@@ -346,12 +348,8 @@ def put_budget(
     group = crud.get_group_by_id(db, db_budget.group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
+    check_group_is_unarchived(group)
 
-    if group.is_archived:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_ACCEPTABLE,
-            detail="El grupo esta archivado, no se pueden seguir agregando presupuestos.",
-        )
     return crud.put_budget(db, db_budget, put_budget)
 
 
@@ -397,6 +395,7 @@ def send_invite(
 
     target_group = crud.get_group_by_id(db, invite.group_id)
     check_group_exists_and_user_is_owner(user.id, target_group)
+    check_group_is_unarchived(target_group)
 
     if user_id_in_group(receiver.id, target_group):
         raise HTTPException(
