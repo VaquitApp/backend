@@ -22,7 +22,7 @@ test-postgres:
 		-e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
 		-d -p 5432:5432 postgres
 	sleep 5 # wait for postgres to start
-	DB_NAME="postgres" DB_USER="postgres" DB_PASSWORD="postgres" DB_HOST="localhost" DB_PORT="5432" \
+	DB_NAME="postgres" DB_USER="postgres" DB_PASS="postgres" DB_HOST="localhost" DB_PORT="5432" \
 		poetry run pytest -svv . || true
 	docker stop $(CONTAINER_NAME)
 
