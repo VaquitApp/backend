@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DB_NAME = os.environ.get("DB_NAME", "./sql_app.db")
 DB_USER = os.environ.get("DB_USER")
-DB_PASS = os.environ.get("DB_PASSWORD")
+DB_PASS = os.environ.get("DB_PASS")
 
 # set automatically by kubernetes
 # resolves to postgres service's host/port
