@@ -8,7 +8,6 @@ from sqlalchemy import (
     Integer,
     String,
     Boolean,
-    Table,
     UniqueConstraint,
     func,
     Enum,

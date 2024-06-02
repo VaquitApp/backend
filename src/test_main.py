@@ -321,7 +321,7 @@ def test_update_group_non_existant(
         "description": "TESTING",
     }
     response = client.put(
-        url=f"/group", headers={"x-user": some_credentials.jwt}, json=put_body
+        url="/group", headers={"x-user": some_credentials.jwt}, json=put_body
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 

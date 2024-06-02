@@ -7,7 +7,6 @@ from src import crud, models, schemas, auth
 from src.mail import mail_service, is_expired_invite
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
-import hashlib
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -451,7 +450,7 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
     if target_group is None or target_group.is_archived:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"No se puede agregar un nuevo miembro a este grupo.",
+            detail="No se puede agregar un nuevo miembro a este grupo.",
         )
 
     if user_id_in_group(user.id, target_group):

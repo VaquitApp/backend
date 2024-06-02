@@ -1,5 +1,5 @@
 from typing import List
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -252,7 +252,7 @@ def create_transactions_from_spending(db: Session, spending: models.Spending):
     )
     members = sorted(group.members, key=lambda x: x.id)
     # TODO: implement division strategy
-    # TODO: this truncates results when the amount is not divisible by the number of members
+    # TODO: this truncates decimals
     amount_per_member = spending.amount // len(members)
     txs = []
     for user, balance in zip(members, balances):
