@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -87,8 +88,10 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
 
     # Add the owner to the group members
     db_user = get_user_by_id(db, user_id)
-    db_user.groups.add(db_group)
 
+    db.commit()
+    db.refresh(db_group)
+    _add_user_to_group(db, db_user, db_group)
     db.commit()
     db.refresh(db_group)
     return db_group
@@ -125,12 +128,17 @@ def update_group_status(db: Session, group: models.Group, status: bool):
     return group
 
 
-def add_user_to_group(db: Session, group: models.Group, user_id: int):
+def add_user_to_group(db: Session, user_id: int, group: models.Group):
     user = get_user_by_id(db, user_id)
-    group.members.add(user)
+    _add_user_to_group(db, user, group)
     db.commit()
     db.refresh(group)
     return group
+
+
+def _add_user_to_group(db: Session, user: models.User, group: models.Group):
+    group.members.add(user)
+    create_user_balance(db, user.id, group.id)
 
 
 ################################################
@@ -142,6 +150,8 @@ def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int)
     db_spending = models.Spending(owner_id=user_id, **dict(spending))
     db.add(db_spending)
     db.commit()
+    db.refresh(db_spending)
+    create_transactions_from_spending(db, db_spending)
     db.refresh(db_spending)
     return db_spending
 
@@ -233,3 +243,57 @@ def update_invite_status(
     db.commit()
     db.refresh(db_invite)
     return db_invite
+
+
+################################################
+# TRANSACTIONS
+################################################
+
+
+def create_transactions_from_spending(db: Session, spending: models.Spending):
+    group = get_group_by_id(db, spending.group_id)
+    balances = sorted(
+        get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
+    )
+    members = sorted(group.members, key=lambda x: x.id)
+    # TODO: implement division strategy
+    # TODO: this truncates results when the amount is not divisible by the number of members
+    amount_per_member = spending.amount // len(members)
+    txs = []
+    for user, balance in zip(members, balances):
+        amount = -amount_per_member
+
+        if spending.owner_id == user.id:
+            amount += spending.amount
+
+        tx = models.Transaction(
+            from_user_id=spending.owner_id,
+            to_user_id=user.id,
+            amount=amount,
+            spending_id=spending.id,
+        )
+        txs.append(tx)
+        db.add(tx)
+        balance.current_balance += amount
+
+    db.commit()
+
+
+################################################
+# BALANCES
+################################################
+
+
+# NOTE: doesn't commit transaction
+def create_user_balance(db: Session, user_id: int, group_id: int):
+    balance = models.Balance(user_id=user_id, group_id=group_id, current_balance=0)
+    db.add(balance)
+
+
+def get_balances_by_group_id(db: Session, group_id: int) -> List[models.Balance]:
+    return (
+        db.query(models.Balance)
+        .filter(models.Balance.group_id == group_id)
+        .limit(100)
+        .all()
+    )

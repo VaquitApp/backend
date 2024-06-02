@@ -165,7 +165,7 @@ def add_user_to_group(
     check_group_exists_and_user_is_owner(user.id, group)
     check_group_is_unarchived(group)
 
-    crud.add_user_to_group(db, group, req.user_id)
+    crud.add_user_to_group(db, req.user_id, group)
 
     return group.members
 
@@ -197,6 +197,13 @@ def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
 
     archived_group = crud.update_group_status(db, group, False)
     return {"detail": f"Grupo {archived_group.name} desarchivado correctamente"}
+
+
+@app.get("/group/{group_id}/balance")
+def list_group_balances(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+    check_group_exists_and_user_is_member(user.id, group)
+    return crud.get_balances_by_group_id(db, group_id)
 
 
 ################################################
@@ -453,5 +460,5 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
-    crud.add_user_to_group(db, target_group, user.id)
+    crud.add_user_to_group(db, user.id, target_group)
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
