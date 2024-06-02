@@ -128,8 +128,7 @@ def update_group_status(db: Session, group: models.Group, status: bool):
     return group
 
 
-def add_user_to_group(db: Session, user_id: int, group: models.Group):
-    user = get_user_by_id(db, user_id)
+def add_user_to_group(db: Session, user: models.User, group: models.Group):
     group.members.add(user)
     db.commit()
     db.refresh(group)

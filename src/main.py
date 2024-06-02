@@ -159,12 +159,27 @@ def add_user_to_group(
     group_id: int,
     req: schemas.AddUserToGroupRequest,
 ):
+    if type(req.user_identifier) == str:
+        user_to_add = crud.get_user_by_email(db, req.user_identifier)
+    else:
+        user_to_add = crud.get_user_by_id(db, req.user_identifier)
+    
+    if user_to_add is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Usuario no existe"
+        )
+    
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_owner(user.id, group)
     check_group_is_unarchived(group)
+    if user_id_in_group(user.id, group):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"El usuario ya es miembro del grupo {group.name}",
+        )
 
-    crud.add_user_to_group(db, req.user_id, group)
+    group = crud.add_user_to_group(db, user_to_add, group)
 
     return group.members
 
@@ -390,7 +405,6 @@ def send_invite(
     mail: MailDependency,
     invite: schemas.InviteCreate,
 ):
-
     receiver = crud.get_user_by_email(db, invite.receiver_email)
     if receiver is None:
         raise HTTPException(
@@ -424,7 +438,6 @@ def send_invite(
 
 @app.post("/invite/join/{invite_token}", status_code=HTTPStatus.OK)
 def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
-
     target_invite = crud.get_invite_by_token(db, invite_token)
     if target_invite is None:
         raise HTTPException(
@@ -459,5 +472,5 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
-    crud.add_user_to_group(db, user.id, target_group)
+    crud.add_user_to_group(db, user, target_group)
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
