@@ -91,7 +91,7 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
 
     db.commit()
     db.refresh(db_group)
-    _add_user_to_group(db, db_user, db_group)
+    db_group.members.add(db_user)
     db.commit()
     db.refresh(db_group)
     return db_group
@@ -130,15 +130,10 @@ def update_group_status(db: Session, group: models.Group, status: bool):
 
 def add_user_to_group(db: Session, user_id: int, group: models.Group):
     user = get_user_by_id(db, user_id)
-    _add_user_to_group(db, user, group)
+    group.members.add(user)
     db.commit()
     db.refresh(group)
     return group
-
-
-def _add_user_to_group(db: Session, user: models.User, group: models.Group):
-    group.members.add(user)
-    create_user_balance(db, user.id, group.id)
 
 
 ################################################
@@ -282,12 +277,6 @@ def create_transactions_from_spending(db: Session, spending: models.Spending):
 ################################################
 # BALANCES
 ################################################
-
-
-# NOTE: doesn't commit transaction
-def create_user_balance(db: Session, user_id: int, group_id: int):
-    balance = models.Balance(user_id=user_id, group_id=group_id, current_balance=0)
-    db.add(balance)
 
 
 def get_balances_by_group_id(db: Session, group_id: int) -> List[models.Balance]:

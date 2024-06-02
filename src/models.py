@@ -19,14 +19,6 @@ from src.schemas import InviteStatus
 from src.database import Base
 
 
-user_to_group_table = Table(
-    "user_to_group_table",
-    Base.metadata,
-    Column("user_id", ForeignKey("users.id"), primary_key=True),
-    Column("group_id", ForeignKey("groups.id"), primary_key=True),
-)
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -34,7 +26,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     groups: Mapped[Set["Group"]] = relationship(
-        secondary=user_to_group_table, back_populates="members"
+        secondary="balances", back_populates="members"
     )
 
 
@@ -47,7 +39,7 @@ class Group(Base):
     description = Column(String)
     is_archived = Column(Boolean)
     members: Mapped[Set[User]] = relationship(
-        secondary=user_to_group_table, back_populates="groups"
+        secondary="balances", back_populates="groups"
     )
 
 
@@ -119,6 +111,6 @@ class Balance(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
-    current_balance = Column(Integer)
+    current_balance = Column(Integer, default=0)
 
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
