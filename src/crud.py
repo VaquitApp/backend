@@ -89,8 +89,6 @@ def create_group(db: Session, group: schemas.GroupCreate, user_id: int):
     # Add the owner to the group members
     db_user = get_user_by_id(db, user_id)
 
-    db.commit()
-    db.refresh(db_group)
     db_group.members.add(db_user)
     db.commit()
     db.refresh(db_group)
