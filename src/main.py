@@ -164,7 +164,7 @@ def add_user_to_group(
     group_id: int,
     req: schemas.AddUserToGroupRequest,
 ):
-    if type(req.user_identifier) == str:
+    if isinstance(req.user_identifier, str):
         user_to_add = crud.get_user_by_email(db, req.user_identifier)
     else:
         user_to_add = crud.get_user_by_id(db, req.user_identifier)
