@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -31,7 +31,7 @@ class UserCredentials(User):
 
 
 class AddUserToGroupRequest(BaseModel):
-    user_id: int
+    user_identifier: Union[int, str]
 
 
 ################################################

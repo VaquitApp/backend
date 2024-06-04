@@ -40,24 +40,64 @@ def client():
     Base.metadata.drop_all(bind=engine)
 
 
-@pytest.fixture()
-def some_credentials(client: TestClient) -> schemas.UserCredentials:
+def make_user_credentials(client: TestClient, email: str):
     response = client.post(
         url="/user/register",
-        json={"email": "example@example.com", "password": "my_ultra_secret_password"},
+        json={"email": email, "password": "my_ultra_secret_password"},
     )
     assert response.status_code == HTTPStatus.CREATED
     return schemas.UserCredentials(**response.json())
+
+
+@pytest.fixture()
+def some_credentials(client: TestClient) -> schemas.UserCredentials:
+    return make_user_credentials(client, "example@example.com")
 
 
 @pytest.fixture()
 def some_other_credentials(client: TestClient) -> schemas.UserCredentials:
+    return make_user_credentials(client, "example2@example.com")
+
+
+@pytest.fixture()
+def some_group(client: TestClient, some_credentials: schemas.UserCredentials):
     response = client.post(
-        url="/user/register",
-        json={"email": "example2@example.com", "password": "my_ultra_secret_password"},
+        url="/group",
+        json={"name": "grupo 1", "description": "really long description 1234"},
+        headers={"x-user": some_credentials.jwt},
     )
+
     assert response.status_code == HTTPStatus.CREATED
-    return schemas.UserCredentials(**response.json())
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["owner_id"] == some_credentials.id
+    return schemas.Group(**response_body)
+
+
+@pytest.fixture()
+def some_group_members(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # NOTE: owner credentials are first item in list
+    # NOTE: group can be fetched with some_group
+    number_of_users = 4
+    users = [some_credentials]
+    for i in range(number_of_users):
+        # Create new user
+        credentials = make_user_credentials(client, f"user{i}@example.com")
+        # Add new user to group
+        response = client.post(
+            url=f"/group/{some_group.id}/member",
+            headers={"x-user": some_credentials.jwt},
+            json={"user_identifier": credentials.id},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        users.append(credentials)
+
+    return users
 
 
 ################################################
@@ -128,7 +168,7 @@ def test_login_with_wrong_password(client: TestClient):
         json={"email": "example@example.com", "password": "a_wrong_password"},
     )
 
-    assert second_response.status_code == HTTPStatus.UNAUTHORIZED
+    assert second_response.status_code == HTTPStatus.FORBIDDEN
     assert "jwt" not in second_response.json()
 
 
@@ -156,21 +196,6 @@ def test_login_with_wrong_email(client: TestClient):
 ################################################
 # GROUPS
 ################################################
-
-
-@pytest.fixture()
-def some_group(client: TestClient, some_credentials: schemas.UserCredentials):
-    response = client.post(
-        url="/group",
-        json={"name": "grupo 1", "description": "really long description 1234"},
-        headers={"x-user": some_credentials.jwt},
-    )
-
-    assert response.status_code == HTTPStatus.CREATED
-    response_body = response.json()
-    assert "id" in response_body
-    assert response_body["owner_id"] == some_credentials.id
-    return schemas.Group(**response_body)
 
 
 def test_create_group(client: TestClient, some_group: schemas.Group):
@@ -296,7 +321,7 @@ def test_update_group_non_existant(
         "description": "TESTING",
     }
     response = client.put(
-        url=f"/group", headers={"x-user": some_credentials.jwt}, json=put_body
+        url="/group", headers={"x-user": some_credentials.jwt}, json=put_body
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -307,21 +332,19 @@ def test_add_user_to_group(
     some_group: schemas.Group,
 ):
     # Create new user
-    body = {"email": "some_email@example.com", "password": "some_password"}
-    response = client.post(url="/user/register", json=body)
-    assert response.status_code == HTTPStatus.CREATED
-    user = response.json()
+    new_user = make_user_credentials(client, "some_random_email@email.com")
 
     # Add new user to group
     response = client.post(
         url=f"/group/{some_group.id}/member",
         headers={"x-user": some_credentials.jwt},
-        json={"user_id": user["id"]},
+        json={"user_identifier": new_user.id},
     )
+    expected_members = sorted([some_credentials.id, new_user.id])
     body = response.json()
-    assert response.status_code == HTTPStatus.CREATED
+    assert response.status_code == HTTPStatus.CREATED, str(body)
     assert len(body) == 2
-    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
+    assert sorted([u["id"] for u in body]) == expected_members
 
     # GET group members
     response = client.get(
@@ -333,7 +356,7 @@ def test_add_user_to_group(
 
     assert response.status_code == HTTPStatus.OK
     assert len(body) == 2
-    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
+    assert sorted([u["id"] for u in body]) == expected_members
 
 
 ################################################
@@ -665,7 +688,6 @@ def some_invite(
     some_other_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-
     # Create Invite
     response = client.post(
         url="/invite",
@@ -716,7 +738,6 @@ def test_send_group_invite_to_non_registered_user(
     some_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-
     response = client.post(
         url="/invite",
         json={"receiver_email": "pepe@gmail.com", "group_id": some_group.id},
@@ -754,7 +775,6 @@ def test_send_group_invite_from_non_group_member(
     some_credentials: schemas.UserCredentials,
     some_other_credentials: schemas.UserCredentials,
 ):
-
     # Other Group
     response = client.post(
         url="/group",
@@ -810,7 +830,6 @@ def test_try_join_group_as_wrong_user(
     some_credentials: schemas.UserCredentials,
     some_invite: schemas.Invite,
 ):
-
     response = client.post(
         url=f"/invite/join/{some_invite.token.hex}",
         headers={"x-user": some_credentials.jwt},
@@ -825,7 +844,6 @@ def test_try_join_archived_group(
     some_group: schemas.Group,
     some_invite: schemas.Invite,
 ):
-
     response = client.put(
         url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
     )
@@ -843,7 +861,6 @@ def test_try_join_already_member(
     some_other_credentials: schemas.UserCredentials,
     some_invite: schemas.Invite,
 ):
-
     response = client.post(
         url=f"/invite/join/{some_invite.token.hex}",
         headers={"x-user": some_other_credentials.jwt},
@@ -855,3 +872,57 @@ def test_try_join_already_member(
         headers={"x-user": some_other_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+################################################
+# BALANCES
+################################################
+
+
+def test_balance_single_group_member(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_spending: schemas.Spending,
+):
+    response = client.get(
+        url=f"/group/{some_spending.group_id}/balance",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    balance_list = response.json()
+    assert len(balance_list) == 1
+
+    body = balance_list[0]
+    assert body["user_id"] == some_credentials.id
+    assert body["group_id"] == some_spending.group_id
+    assert body["current_balance"] == 0
+
+
+# NOTE: parameters need to be in this order
+def test_balance_multiple_members(
+    client: TestClient,
+    some_group_members: list[schemas.UserCredentials],
+    some_spending: schemas.Spending,
+):
+    response = client.get(
+        url=f"/group/{some_spending.group_id}/balance",
+        headers={"x-user": some_group_members[0].jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    balance_list = response.json()
+    assert len(balance_list) == len(some_group_members)
+
+    charge_per_member = some_spending.amount // len(some_group_members)
+    assert sum(b["current_balance"] for b in balance_list) == 0
+
+    balance_list.sort(key=lambda x: x["user_id"])
+
+    for balance, user in zip(balance_list, some_group_members):
+        assert balance["user_id"] == user.id
+        assert balance["group_id"] == some_spending.group_id
+        expected_balance = -charge_per_member + (
+            some_spending.amount if user.id == some_spending.owner_id else 0
+        )
+        assert balance["current_balance"] == expected_balance
