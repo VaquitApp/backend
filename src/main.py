@@ -26,14 +26,19 @@ def get_db():
 DbDependency = Annotated[Session, Depends(get_db)]
 
 
-def ensure_user(x_user: Annotated[str, Header()]) -> models.User:
+def ensure_user(db: DbDependency, x_user: Annotated[str, Header()]) -> models.User:
     jwt_claims = auth.parse_jwt(x_user)
     if jwt_claims is None:
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED,
             detail="Necesita loguearse para continuar",
         )
-    user = models.User(id=jwt_claims["id"], email=jwt_claims["email"])
+    user = crud.get_user_by_id(db, jwt_claims["id"])
+    if user is None:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Usuario no encontrado",
+        )
     return user
 
 
@@ -72,7 +77,7 @@ def login(user: schemas.UserLogin, db: DbDependency) -> schemas.UserCredentials:
 
     if not auth.valid_password(user.password, db_user.hashed_password):
         raise HTTPException(
-            status_code=HTTPStatus.UNAUTHORIZED, detail="Contraseña incorrecta"
+            status_code=HTTPStatus.FORBIDDEN, detail="Contraseña incorrecta"
         )
 
     credentials = auth.login_user(db_user)
@@ -116,7 +121,7 @@ def check_group_exists_and_user_is_owner(user_id: int, group: models.Group):
     # If user is in group, but is not the owner
     if group.owner_id != user_id:
         raise HTTPException(
-            status_code=HTTPStatus.UNAUTHORIZED,
+            status_code=HTTPStatus.FORBIDDEN,
             detail="No tiene permisos para modificar este grupo",
         )
 
@@ -163,17 +168,17 @@ def add_user_to_group(
         user_to_add = crud.get_user_by_email(db, req.user_identifier)
     else:
         user_to_add = crud.get_user_by_id(db, req.user_identifier)
-    
+
     if user_to_add is None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Usuario no existe"
         )
-    
+
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_owner(user.id, group)
     check_group_is_unarchived(group)
-    if user_id_in_group(user.id, group):
+    if user_id_in_group(user_to_add.id, group):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"El usuario ya es miembro del grupo {group.name}",

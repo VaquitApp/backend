@@ -91,7 +91,7 @@ def some_group_members(
         response = client.post(
             url=f"/group/{some_group.id}/member",
             headers={"x-user": some_credentials.jwt},
-            json={"user_id": credentials.id},
+            json={"user_identifier": credentials.id},
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -168,7 +168,7 @@ def test_login_with_wrong_password(client: TestClient):
         json={"email": "example@example.com", "password": "a_wrong_password"},
     )
 
-    assert second_response.status_code == HTTPStatus.UNAUTHORIZED
+    assert second_response.status_code == HTTPStatus.FORBIDDEN
     assert "jwt" not in second_response.json()
 
 
@@ -332,21 +332,19 @@ def test_add_user_to_group(
     some_group: schemas.Group,
 ):
     # Create new user
-    body = {"email": "some_email@example.com", "password": "some_password"}
-    response = client.post(url="/user/register", json=body)
-    assert response.status_code == HTTPStatus.CREATED
-    user = response.json()
+    new_user = make_user_credentials(client, "some_random_email@email.com")
 
     # Add new user to group
     response = client.post(
         url=f"/group/{some_group.id}/member",
         headers={"x-user": some_credentials.jwt},
-        json={"user_id": user["id"]},
+        json={"user_identifier": new_user.id},
     )
+    expected_members = sorted([some_credentials.id, new_user.id])
     body = response.json()
-    assert response.status_code == HTTPStatus.CREATED
+    assert response.status_code == HTTPStatus.CREATED, str(body)
     assert len(body) == 2
-    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
+    assert sorted([u["id"] for u in body]) == expected_members
 
     # GET group members
     response = client.get(
@@ -358,7 +356,7 @@ def test_add_user_to_group(
 
     assert response.status_code == HTTPStatus.OK
     assert len(body) == 2
-    assert sorted([u["id"] for u in body]) == sorted([some_credentials.id, user["id"]])
+    assert sorted([u["id"] for u in body]) == expected_members
 
 
 ################################################
@@ -690,7 +688,6 @@ def some_invite(
     some_other_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-
     # Create Invite
     response = client.post(
         url="/invite",
