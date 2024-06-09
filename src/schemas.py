@@ -109,6 +109,27 @@ class Spending(SpendingBase):
 
 
 ################################################
+# PAYMENTS
+################################################
+
+
+class PaymentBase(BaseModel):
+    group_id: int
+    from_id: int
+    to_id: int
+    amount: int
+    date: Optional[datetime] = Field(None)
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class Payment(PaymentBase):
+    id: int
+
+
+################################################
 # BUDGETS
 ################################################
 

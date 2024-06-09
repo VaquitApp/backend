@@ -67,6 +67,17 @@ class Spending(Base):
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(ForeignKey("groups.id"))
+    from_id = Column(ForeignKey("users.id"))
+    to_id = Column(ForeignKey("users.id"))
+    amount = Column(Integer)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
 class Budget(Base):
     __tablename__ = "budgets"
 

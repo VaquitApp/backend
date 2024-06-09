@@ -335,6 +335,55 @@ def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
 
 
 ################################################
+# PAYMENTS
+################################################
+
+
+@app.post("/payment", status_code=HTTPStatus.CREATED)
+def create_payment(
+    payment: schemas.PaymentCreate, db: DbDependency, user: UserDependency
+):
+    group = crud.get_group_by_id(db, payment.group_id)
+
+    # Check creator, sender, and receiver are members of the group
+    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(payment.from_id, group)
+    check_group_exists_and_user_is_member(payment.to_id, group)
+
+    if payment.from_id == payment.to_id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="No se puede realizar un pago a uno mismo.",
+        )
+
+    if group.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            detail="El grupo esta archivado, no se pueden seguir agregando pagos.",
+        )
+
+    return crud.create_payment(db, payment)
+
+
+@app.get("/payment")
+def list_payments(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+
+    return crud.get_payments_by_group_id(db, group_id)
+
+
+@app.get("/group/{group_id}/payment")
+def list_group_payments(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+
+    return crud.get_payments_by_group_id(db, group_id)
+
+
+################################################
 # BUDGETS
 ################################################
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -15,7 +15,7 @@ def get_user_by_id(db: Session, id: int):
     return db.query(models.User).filter(models.User.id == id).first()
 
 
-def get_user_by_email(db: Session, email: str) -> models.User:
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.email == email).first()
 
 
@@ -161,6 +161,28 @@ def get_spendings_by_category(db: Session, category_id: int):
     return (
         db.query(models.Spending)
         .filter(models.Spending.category_id == category_id)
+        .limit(100)
+        .all()
+    )
+
+
+################################################
+# PAYMENTS
+################################################
+
+
+def create_payment(db: Session, payment: schemas.PaymentCreate):
+    db_payment = models.Spending(**dict(payment))
+    db.add(db_payment)
+    db.commit()
+    db.refresh(db_payment)
+    return db_payment
+
+
+def get_payments_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.Payment)
+        .filter(models.Payment.group_id == group_id)
         .limit(100)
         .all()
     )
