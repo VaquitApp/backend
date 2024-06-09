@@ -102,19 +102,6 @@ class Invite(Base):
     creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
-class Transaction(Base):
-    __tablename__ = "transactions"
-
-    id = Column(Integer, primary_key=True)
-    spending_id = Column(ForeignKey("spendings.id"))
-    from_user_id = Column(ForeignKey("users.id"))
-    to_user_id = Column(ForeignKey("users.id"))
-    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    amount = Column(Integer)
-
-    __table_args__ = (UniqueConstraint("spending_id", "to_user_id"),)
-
-
 class Balance(Base):
     __tablename__ = "balances"
 
