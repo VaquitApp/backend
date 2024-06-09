@@ -926,3 +926,74 @@ def test_balance_multiple_members(
             some_spending.amount if user.id == some_spending.owner_id else 0
         )
         assert balance["current_balance"] == expected_balance
+
+
+################################################
+# PAYMENTS
+################################################
+
+
+@pytest.fixture
+def some_payment(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    res = client.post(
+        url=f"/group/{some_group.id}/member",
+        json={
+            "user_identifier": some_other_credentials.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert res.status_code == HTTPStatus.CREATED
+
+    response = client.post(
+        url="/payment",
+        json={
+            "group_id": some_group.id,
+            "from_id": some_credentials.id,
+            "to_id": some_other_credentials.id,
+            "amount": 500,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    return schemas.Payment(**response_body)
+
+
+def test_create_payment(some_payment: schemas.Payment):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_payment_updates_balance(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment: schemas.Payment,
+):
+    response = client.get(
+        url=f"/group/{some_payment.group_id}/balance",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    balance_list = response.json()
+    assert len(balance_list) == 2
+
+    balance_list.sort(key=lambda x: x["user_id"])
+    [some_balance, some_other_balance] = balance_list
+
+    assert some_balance["user_id"] == some_credentials.id
+    assert some_balance["group_id"] == some_payment.group_id
+    assert some_balance["current_balance"] == some_payment.amount
+
+    assert some_other_balance["user_id"] == some_other_credentials.id
+    assert some_other_balance["group_id"] == some_payment.group_id
+    assert some_other_balance["current_balance"] == -some_payment.amount

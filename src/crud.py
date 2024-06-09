@@ -172,7 +172,7 @@ def get_spendings_by_category(db: Session, category_id: int):
 
 
 def create_payment(db: Session, payment: schemas.PaymentCreate):
-    db_payment = models.Spending(**dict(payment))
+    db_payment = models.Payment(**dict(payment))
     db.add(db_payment)
     db.commit()
     db.refresh(db_payment)
