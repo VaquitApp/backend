@@ -236,6 +236,18 @@ def update_invite_status(
     db.refresh(db_invite)
     return db_invite
 
+################################################
+# REMINDERS
+################################################
+
+def create_payment_reminder(db: Session, payment_reminder: schemas.PaymentReminderCreate, sender_id: int):
+    db_reminder = models.PaymentReminder(sender_id=sender_id,
+        receiver_id=payment_reminder.receiver_id,
+        group_id=payment_reminder.group_id)
+    db.add(db_reminder)
+    db.commit()
+    db.refresh(db_reminder)
+    return db_reminder
 
 ################################################
 # TRANSACTIONS

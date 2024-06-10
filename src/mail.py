@@ -17,6 +17,10 @@ class MailSender(ABC):
     def send(self, sender: str, receiver: str, group_name: str) -> bool:
         pass
 
+    @abstractmethod
+    def send_reminder(self, sender: str, receiver: str, group_id: int) -> bool:
+        pass
+
 
 class ProdMailSender(MailSender):
     def send(
@@ -44,10 +48,39 @@ class ProdMailSender(MailSender):
         except ApiException as e:
             error(f"Failed to send email with error: {e}")
             return False
+    
+    def send_reminder(
+        self, sender: str, receiver: str, group: schemas.Group) -> bool:
+        configuration = sdk.Configuration()
+        configuration.api_key["api-key"] = API_KEY
+
+        api_instance = sdk.TransactionalEmailsApi(sdk.ApiClient(configuration))
+
+        to = [{"email": receiver}]
+        params = {
+            "sender": sender,
+            "group_id": group.id,
+            "group_name": group.name,
+        }
+
+        email = sdk.SendSmtpEmail(to=to, template_id=TEMPLATE_ID, params=params)
+
+        try:
+            response = api_instance.send_transac_email(email)
+            info(response)
+            return True
+        except ApiException as e:
+            error(f"Failed to send email with error: {e}")
+            return False
 
 
 class LocalMailSender(MailSender):
     def send(
+        self, sender: str, receiver: str, group: schemas.Group, token: str
+    ) -> bool:
+        return True
+    
+    def send_reminder(
         self, sender: str, receiver: str, group: schemas.Group, token: str
     ) -> bool:
         return True

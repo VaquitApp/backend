@@ -479,3 +479,30 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
 
     crud.add_user_to_group(db, user, target_group)
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
+
+################################################
+# REMINDERS
+################################################
+
+@app.post("/payment_reminder", status_code=HTTPStatus.CREATED)
+def send_payment_reminder(db: DbDependency,
+    user: UserDependency,
+    mail: MailDependency,
+    payment_reminder: schemas.PaymentReminderCreate):
+
+    receiver = crud.get_user_by_email(db, payment_reminder.receiver_email)
+    group = crud.get_group_by_id(db, payment_reminder.group_id)
+    check_group_exists_and_user_is_member(receiver.id, group)
+    check_group_is_unarchived(group)
+    payment_reminder.receiver_id = receiver.id
+
+   
+    sent_ok = mail.send_reminder(
+        sender=user.email, receiver=receiver.email, group=group)
+
+    if sent_ok:
+        return crud.create_payment_reminder(db, payment_reminder, user.id)
+    else:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="No se pudo enviar recordatorio de pago al usuario."
+        )

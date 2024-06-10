@@ -160,3 +160,20 @@ class Invite(InviteBase):
     id: int
     sender_id: int
     status: InviteStatus
+
+################################################
+# REMINDERS
+################################################
+
+class PaymentReminderBase(BaseModel):
+    creation_date: Optional[datetime] = Field(None)
+    receiver_id: int
+    group_id: int
+    message: Optional[str] = Field(None)
+
+class PaymentReminderCreate(PaymentReminderBase):
+    receiver_email: str
+
+class PaymentReminder(PaymentReminderBase):
+    id: int
+    sender_id: int
