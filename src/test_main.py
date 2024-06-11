@@ -926,3 +926,54 @@ def test_balance_multiple_members(
             some_spending.amount if user.id == some_spending.owner_id else 0
         )
         assert balance["current_balance"] == expected_balance
+
+################################################
+# PAYMENT REMINDERS
+################################################
+def some_payment_reminder(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create PaymentReminder
+    response = client.post(
+        url="/payment_reminder",
+        json={
+            "receiver_email": some_other_credentials.email,
+            "group_id": some_group.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+
+    assert "creation_date" in response_body
+    assert response_body["group_id"] == some_group.id
+    assert response_body["sender_id"] == some_credentials.id
+    assert response_body["receiver_id"] == some_other_credentials.id
+
+    return schemas.PaymentReminder(**response_body)
+
+def test_send_payment_reminder_to_non_registered_user(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/payment_reminder",
+        json={"receiver_email": "pepe@gmail.com", "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+def test_send_payment_reminder_on_non_existant_group(
+    client: TestClient, some_credentials: schemas.UserCredentials
+):
+    response = client.post(
+        url="/payment_reminder",
+        json={"receiver_email": some_credentials.email, "group_id": 12345},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+

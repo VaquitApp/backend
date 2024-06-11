@@ -491,6 +491,10 @@ def send_payment_reminder(db: DbDependency,
     payment_reminder: schemas.PaymentReminderCreate):
 
     receiver = crud.get_user_by_email(db, payment_reminder.receiver_email)
+    if receiver is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="No se encontro el usuario receptor."
+        )
     group = crud.get_group_by_id(db, payment_reminder.group_id)
     check_group_exists_and_user_is_member(receiver.id, group)
     check_group_is_unarchived(group)

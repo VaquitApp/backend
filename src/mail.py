@@ -81,8 +81,7 @@ class LocalMailSender(MailSender):
         return True
     
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group, token: str
-    ) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group) -> bool:
         return True
 
 
