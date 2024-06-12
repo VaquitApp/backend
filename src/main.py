@@ -502,7 +502,7 @@ def send_payment_reminder(db: DbDependency,
 
    
     sent_ok = mail.send_reminder(
-        sender=user.email, receiver=receiver.email, group=group)
+        sender=user.email, receiver=receiver.email, group=group, message=payment_reminder.message)
 
     if sent_ok:
         return crud.create_payment_reminder(db, payment_reminder, user.id)

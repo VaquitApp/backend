@@ -244,6 +244,10 @@ def create_payment_reminder(db: Session, payment_reminder: schemas.PaymentRemind
     db_reminder = models.PaymentReminder(sender_id=sender_id,
         receiver_id=payment_reminder.receiver_id,
         group_id=payment_reminder.group_id)
+    
+    if payment_reminder.message is not None:
+        db_reminder.message = payment_reminder.message
+
     db.add(db_reminder)
     db.commit()
     db.refresh(db_reminder)

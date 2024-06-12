@@ -52,7 +52,7 @@ class ProdMailSender(MailSender):
             return False
     
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group, message: str = DEFAULT_REMINDER) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: str) -> bool:
         configuration = sdk.Configuration()
         configuration.api_key["api-key"] = API_KEY
 
@@ -61,7 +61,7 @@ class ProdMailSender(MailSender):
         to = [{"email": receiver}]
         params = {
             "sender": sender,
-            "message": message,
+            "message": DEFAULT_REMINDER if message is None else message,
             "landing_page":  f"{BASE_URL}",
             "group_name": group.name,
         }
@@ -84,7 +84,7 @@ class LocalMailSender(MailSender):
         return True
     
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: str) -> bool:
         return True
 
 
