@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
 from src import crud, models, schemas, auth
-from src.mail import mail_service, is_expired_invite
+from src.mail import MailSender, mail_service, is_expired_invite
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 
@@ -45,7 +45,7 @@ def ensure_user(db: DbDependency, x_user: Annotated[str, Header()]) -> models.Us
 app = FastAPI(dependencies=[Depends(get_db)])
 
 UserDependency = Annotated[models.User, Depends(ensure_user)]
-MailDependency = Annotated[models.Invite, Depends(get_mail_sender)]
+MailDependency = Annotated[MailSender, Depends(get_mail_sender)]
 
 ################################################
 # USERS
@@ -429,7 +429,7 @@ def send_invite(
         )
 
     token = uuid4()
-    sent_ok = mail.send(
+    sent_ok = mail.send_invite(
         sender=user.email, receiver=receiver.email, group=target_group, token=token.hex
     )
 
@@ -479,3 +479,34 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
 
     crud.add_user_to_group(db, user, target_group)
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
+
+################################################
+# REMINDERS
+################################################
+
+@app.post("/payment_reminder", status_code=HTTPStatus.CREATED)
+def send_payment_reminder(db: DbDependency,
+    user: UserDependency,
+    mail: MailDependency,
+    payment_reminder: schemas.PaymentReminderCreate):
+
+    receiver = crud.get_user_by_email(db, payment_reminder.receiver_email)
+    if receiver is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="No se encontro el usuario receptor."
+        )
+    group = crud.get_group_by_id(db, payment_reminder.group_id)
+    check_group_exists_and_user_is_member(receiver.id, group)
+    check_group_is_unarchived(group)
+    payment_reminder.receiver_id = receiver.id
+
+   
+    sent_ok = mail.send_reminder(
+        sender=user.email, receiver=receiver.email, group=group, message=payment_reminder.message)
+
+    if sent_ok:
+        return crud.create_payment_reminder(db, payment_reminder, user.id)
+    else:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="No se pudo enviar recordatorio de pago al usuario."
+        )

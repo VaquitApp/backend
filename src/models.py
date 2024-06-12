@@ -113,3 +113,14 @@ class Balance(Base):
     current_balance = Column(Integer, default=0)
 
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
+
+class PaymentReminder(Base):
+    __tablename__ = "payment_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    receiver_id = Column(Integer, ForeignKey("users.id"))
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    message = Column(String)
+    creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
