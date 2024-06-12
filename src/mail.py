@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import os
 from logging import info, error, warning
+from typing import Optional
 import sib_api_v3_sdk as sdk
 from sib_api_v3_sdk.rest import ApiException
 
@@ -20,7 +21,7 @@ class MailSender(ABC):
         pass
 
     @abstractmethod
-    def send_reminder(self, sender: str, receiver: str, group_id: int) -> bool:
+    def send_reminder(self, sender: str, receiver: str, group_id: int, message: Optional[str]) -> bool:
         pass
 
 
@@ -52,7 +53,7 @@ class ProdMailSender(MailSender):
             return False
     
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group, message: str) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: Optional[str]) -> bool:
         configuration = sdk.Configuration()
         configuration.api_key["api-key"] = API_KEY
 
@@ -84,7 +85,7 @@ class LocalMailSender(MailSender):
         return True
     
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group, message: str) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: Optional[str]) -> bool:
         return True
 
 
