@@ -155,6 +155,29 @@ class RecurringSpending(RecurringSpendingBase):
     owner_id: int
 
 ################################################
+# PAYMENTS
+################################################
+
+
+class PaymentBase(BaseModel):
+    group_id: int
+    from_id: int
+    to_id: int
+    amount: int
+    date: Optional[datetime] = Field(None)
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class Payment(PaymentBase):
+    id: int
+
+
+
+
+################################################
 # BUDGETS
 ################################################
 
@@ -210,3 +233,24 @@ class Invite(InviteBase):
     id: int
     sender_id: int
     status: InviteStatus
+
+
+################################################
+# REMINDERS
+################################################
+
+
+class PaymentReminderBase(BaseModel):
+    creation_date: Optional[datetime] = Field(None)
+    receiver_id: Optional[int] = Field(None)
+    group_id: int
+    message: Optional[str] = Field(None)
+
+
+class PaymentReminderCreate(PaymentReminderBase):
+    receiver_email: str
+
+
+class PaymentReminder(PaymentReminderBase):
+    id: int
+    sender_id: int
