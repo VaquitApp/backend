@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
 from src import crud, models, schemas, auth
-from src.mail import mail_service, is_expired_invite
+from src.mail import MailSender, mail_service, is_expired_invite
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 
@@ -45,7 +45,7 @@ def ensure_user(db: DbDependency, x_user: Annotated[str, Header()]) -> models.Us
 app = FastAPI(dependencies=[Depends(get_db)])
 
 UserDependency = Annotated[models.User, Depends(ensure_user)]
-MailDependency = Annotated[models.Invite, Depends(get_mail_sender)]
+MailDependency = Annotated[MailSender, Depends(get_mail_sender)]
 
 ################################################
 # USERS
