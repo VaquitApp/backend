@@ -95,11 +95,11 @@ class UniqueSpendingBase(BaseModel):
     category_id: int
 
 
-class SpendingCreate(UniqueSpendingBase):
+class UniqueSpendingCreate(UniqueSpendingBase):
     pass
 
 
-class Spending(UniqueSpendingBase):
+class UniqueSpending(UniqueSpendingBase):
     id: int
     owner_id: int
 

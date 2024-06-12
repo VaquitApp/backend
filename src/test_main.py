@@ -386,7 +386,7 @@ def some_spending(
     some_category: schemas.Category,
 ):
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -403,10 +403,10 @@ def some_spending(
     assert response_body["group_id"] == some_group.id
     assert response_body["category_id"] == some_category.id
     assert response_body
-    return schemas.Spending(**response_body)
+    return schemas.UniqueSpending(**response_body)
 
 
-def test_create_new_spending(client: TestClient, some_spending: schemas.Spending):
+def test_create_new_spending(client: TestClient, some_spending: schemas.UniqueSpending):
     # NOTE: test is inside fixture
     pass
 
@@ -418,7 +418,7 @@ def test_create_new_spending_with_default_date(
     some_category: schemas.Category,
 ):
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -441,7 +441,7 @@ def test_create_new_spending_with_non_existant_category(
     some_group: schemas.Group,
 ):
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -456,16 +456,15 @@ def test_create_new_spending_with_non_existant_category(
 def test_get_spendings(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
-    some_spending: schemas.Spending,
+    some_spending: schemas.UniqueSpending,
 ):
     response = client.get(
-        url="/spending",
-        params={"group_id": some_spending.group_id},
+        url=f"/group/{some_spending.group_id}/spending",
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.OK
     assert len(response.json()) == 1
-    assert schemas.Spending(**response.json()[0]) == some_spending
+    assert schemas.UniqueSpending(**response.json()[0]) == some_spending
 
 
 def test_create_spending_on_archived_group(
@@ -481,7 +480,7 @@ def test_create_spending_on_archived_group(
     assert response.status_code == HTTPStatus.OK
 
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -896,7 +895,7 @@ def test_try_join_already_member(
 def test_balance_single_group_member(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
-    some_spending: schemas.Spending,
+    some_spending: schemas.UniqueSpending,
 ):
     response = client.get(
         url=f"/group/{some_spending.group_id}/balance",
@@ -917,7 +916,7 @@ def test_balance_single_group_member(
 def test_balance_multiple_members(
     client: TestClient,
     some_group_members: list[schemas.UserCredentials],
-    some_spending: schemas.Spending,
+    some_spending: schemas.UniqueSpending,
 ):
     response = client.get(
         url=f"/group/{some_spending.group_id}/balance",

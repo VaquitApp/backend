@@ -313,7 +313,7 @@ def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id
 
 @app.post("/unique-spending", status_code=HTTPStatus.CREATED)
 def create_unique_spending(
-    spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
+    spending: schemas.UniqueSpendingCreate, db: DbDependency, user: UserDependency
 ):
     group = crud.get_group_by_id(db, spending.group_id)
 

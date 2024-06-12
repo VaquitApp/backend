@@ -153,7 +153,7 @@ def get_all_spendings_by_group_id(db: Session, group_id: int):
 # UNIQUE SPENDINGS
 ################################################
 
-def create_unique_spending(db: Session, spending: schemas.SpendingCreate, user_id: int):
+def create_unique_spending(db: Session, spending: schemas.UniqueSpendingCreate, user_id: int):
     db_spending = models.UniqueSpending(owner_id=user_id, **dict(spending))
     db.add(db_spending)
     db.commit()
