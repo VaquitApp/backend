@@ -182,7 +182,7 @@ def create_installment_spending(db: Session, spending: schemas.InstallmentSpendi
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    # update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending)
     db.refresh(db_spending)
     return db_spending
 
@@ -191,52 +191,6 @@ def get_installment_spendings_by_group_id(db: Session, group_id: int):
     return (
         db.query(models.InstallmentSpending)
         .filter(models.InstallmentSpending.group_id == group_id)
-        .limit(100)
-        .all()
-    )
-
-
-################################################
-# PAYMENTS
-################################################
-
-
-def create_payment(db: Session, payment: schemas.PaymentCreate):
-    db_payment = models.Payment(**dict(payment))
-    update_balances_from_payment(db, db_payment)
-    db.add(db_payment)
-    db.commit()
-    db.refresh(db_payment)
-    return db_payment
-
-
-def get_payments_by_group_id(db: Session, group_id: int):
-    return (
-        db.query(models.Payment)
-        .filter(models.Payment.group_id == group_id)
-        .limit(100)
-        .all()
-    )
-
-
-################################################
-# PAYMENTS
-################################################
-
-
-def create_payment(db: Session, payment: schemas.PaymentCreate):
-    db_payment = models.Payment(**dict(payment))
-    update_balances_from_payment(db, db_payment)
-    db.add(db_payment)
-    db.commit()
-    db.refresh(db_payment)
-    return db_payment
-
-
-def get_payments_by_group_id(db: Session, group_id: int):
-    return (
-        db.query(models.Payment)
-        .filter(models.Payment.group_id == group_id)
         .limit(100)
         .all()
     )
@@ -252,7 +206,7 @@ def create_recurring_spending(db: Session, spending: schemas.RecurringSpendingBa
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    # create_transactions_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending)
     db.refresh(db_spending)
     return db_spending
 
@@ -277,6 +231,29 @@ def put_recurring_spendings(db: Session, db_recurring_spending: models.Recurring
     db.commit()
     db.refresh(db_recurring_spending)
     return db_recurring_spending
+
+
+################################################
+# PAYMENTS
+################################################
+
+
+def create_payment(db: Session, payment: schemas.PaymentCreate):
+    db_payment = models.Payment(**dict(payment))
+    update_balances_from_payment(db, db_payment)
+    db.add(db_payment)
+    db.commit()
+    db.refresh(db_payment)
+    return db_payment
+
+
+def get_payments_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.Payment)
+        .filter(models.Payment.group_id == group_id)
+        .limit(100)
+        .all()
+    )
 
 ################################################
 # BUDGETS
