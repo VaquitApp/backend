@@ -9,12 +9,13 @@ from src import schemas
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
 API_KEY = os.environ.get("EMAIL_API_KEY")
-TEMPLATE_ID = 1
+INVITE_TEMPLATE_ID = 1
+REMINDER_TEMPLATE_ID = 2
 
 
 class MailSender(ABC):
     @abstractmethod
-    def send(self, sender: str, receiver: str, group_name: str) -> bool:
+    def send_invite(self, sender: str, receiver: str, group_name: str) -> bool:
         pass
 
     @abstractmethod
@@ -23,7 +24,7 @@ class MailSender(ABC):
 
 
 class ProdMailSender(MailSender):
-    def send(
+    def send_invite(
         self, sender: str, receiver: str, group: schemas.Group, token: str
     ) -> bool:
         configuration = sdk.Configuration()
@@ -39,7 +40,7 @@ class ProdMailSender(MailSender):
             "join_link": f"{BASE_URL}/invites/accept/{token}",
         }
 
-        email = sdk.SendSmtpEmail(to=to, template_id=TEMPLATE_ID, params=params)
+        email = sdk.SendSmtpEmail(to=to, template_id=INVITE_TEMPLATE_ID, params=params)
 
         try:
             response = api_instance.send_transac_email(email)
@@ -63,7 +64,7 @@ class ProdMailSender(MailSender):
             "group_name": group.name,
         }
 
-        email = sdk.SendSmtpEmail(to=to, template_id=TEMPLATE_ID, params=params)
+        email = sdk.SendSmtpEmail(to=to, template_id=REMINDER_TEMPLATE_ID, params=params)
 
         try:
             response = api_instance.send_transac_email(email)
@@ -75,7 +76,7 @@ class ProdMailSender(MailSender):
 
 
 class LocalMailSender(MailSender):
-    def send(
+    def send_invite(
         self, sender: str, receiver: str, group: schemas.Group, token: str
     ) -> bool:
         return True

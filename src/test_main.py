@@ -958,11 +958,14 @@ def some_payment_reminder(
 def test_send_payment_reminder_to_non_registered_user(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
-    some_group: schemas.Group,
+    some_group: schemas.Group
 ):
     response = client.post(
         url="/payment_reminder",
-        json={"receiver_email": "pepe@gmail.com", "group_id": some_group.id},
+        json={
+            "receiver_email": "pepe@gmail.com",
+            "group_id": some_group.id,
+        },
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.NOT_FOUND

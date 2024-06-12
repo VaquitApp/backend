@@ -167,7 +167,7 @@ class Invite(InviteBase):
 
 class PaymentReminderBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
-    receiver_id: int
+    receiver_id: Optional[int] = Field(None)
     group_id: int
     message: Optional[str] = Field(None)
 

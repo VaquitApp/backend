@@ -429,7 +429,7 @@ def send_invite(
         )
 
     token = uuid4()
-    sent_ok = mail.send(
+    sent_ok = mail.send_invite(
         sender=user.email, receiver=receiver.email, group=target_group, token=token.hex
     )
 
