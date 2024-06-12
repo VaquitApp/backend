@@ -15,13 +15,16 @@ INVITE_TEMPLATE_ID = 1
 REMINDER_TEMPLATE_ID = 2
 DEFAULT_REMINDER = "No demores muucho con la deuda! :D"
 
+
 class MailSender(ABC):
     @abstractmethod
     def send_invite(self, sender: str, receiver: str, group_name: str) -> bool:
         pass
 
     @abstractmethod
-    def send_reminder(self, sender: str, receiver: str, group_id: int, message: Optional[str]) -> bool:
+    def send_reminder(
+        self, sender: str, receiver: str, group_id: int, message: Optional[str]
+    ) -> bool:
         pass
 
 
@@ -51,9 +54,10 @@ class ProdMailSender(MailSender):
         except ApiException as e:
             error(f"Failed to send email with error: {e}")
             return False
-    
+
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group, message: Optional[str]) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: Optional[str]
+    ) -> bool:
         configuration = sdk.Configuration()
         configuration.api_key["api-key"] = API_KEY
 
@@ -63,11 +67,13 @@ class ProdMailSender(MailSender):
         params = {
             "sender": sender,
             "message": DEFAULT_REMINDER if message is None else message,
-            "landing_page":  f"{BASE_URL}",
+            "landing_page": f"{BASE_URL}",
             "group_name": group.name,
         }
 
-        email = sdk.SendSmtpEmail(to=to, template_id=REMINDER_TEMPLATE_ID, params=params)
+        email = sdk.SendSmtpEmail(
+            to=to, template_id=REMINDER_TEMPLATE_ID, params=params
+        )
 
         try:
             response = api_instance.send_transac_email(email)
@@ -83,9 +89,10 @@ class LocalMailSender(MailSender):
         self, sender: str, receiver: str, group: schemas.Group, token: str
     ) -> bool:
         return True
-    
+
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group, message: Optional[str]) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: Optional[str]
+    ) -> bool:
         return True
 
 

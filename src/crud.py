@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -15,7 +15,7 @@ def get_user_by_id(db: Session, id: int):
     return db.query(models.User).filter(models.User.id == id).first()
 
 
-def get_user_by_email(db: Session, email: str) -> models.User:
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.email == email).first()
 
 
@@ -143,7 +143,7 @@ def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int)
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    create_transactions_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending)
     db.refresh(db_spending)
     return db_spending
 
@@ -161,6 +161,29 @@ def get_spendings_by_category(db: Session, category_id: int):
     return (
         db.query(models.Spending)
         .filter(models.Spending.category_id == category_id)
+        .limit(100)
+        .all()
+    )
+
+
+################################################
+# PAYMENTS
+################################################
+
+
+def create_payment(db: Session, payment: schemas.PaymentCreate):
+    db_payment = models.Payment(**dict(payment))
+    update_balances_from_payment(db, db_payment)
+    db.add(db_payment)
+    db.commit()
+    db.refresh(db_payment)
+    return db_payment
+
+
+def get_payments_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.Payment)
+        .filter(models.Payment.group_id == group_id)
         .limit(100)
         .all()
     )
@@ -236,15 +259,21 @@ def update_invite_status(
     db.refresh(db_invite)
     return db_invite
 
+
 ################################################
 # REMINDERS
 ################################################
 
-def create_payment_reminder(db: Session, payment_reminder: schemas.PaymentReminderCreate, sender_id: int):
-    db_reminder = models.PaymentReminder(sender_id=sender_id,
+
+def create_payment_reminder(
+    db: Session, payment_reminder: schemas.PaymentReminderCreate, sender_id: int
+):
+    db_reminder = models.PaymentReminder(
+        sender_id=sender_id,
         receiver_id=payment_reminder.receiver_id,
-        group_id=payment_reminder.group_id)
-    
+        group_id=payment_reminder.group_id,
+    )
+
     if payment_reminder.message is not None:
         db_reminder.message = payment_reminder.message
 
@@ -253,12 +282,13 @@ def create_payment_reminder(db: Session, payment_reminder: schemas.PaymentRemind
     db.refresh(db_reminder)
     return db_reminder
 
+
 ################################################
-# TRANSACTIONS
+# BALANCES
 ################################################
 
 
-def create_transactions_from_spending(db: Session, spending: models.Spending):
+def update_balances_from_spending(db: Session, spending: models.Spending):
     group = get_group_by_id(db, spending.group_id)
     balances = sorted(
         get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
@@ -267,29 +297,31 @@ def create_transactions_from_spending(db: Session, spending: models.Spending):
     # TODO: implement division strategy
     # TODO: this truncates decimals
     amount_per_member = spending.amount // len(members)
-    txs = []
     for user, balance in zip(members, balances):
         amount = -amount_per_member
 
         if spending.owner_id == user.id:
             amount += spending.amount
 
-        tx = models.Transaction(
-            from_user_id=spending.owner_id,
-            to_user_id=user.id,
-            amount=amount,
-            spending_id=spending.id,
-        )
-        txs.append(tx)
-        db.add(tx)
         balance.current_balance += amount
 
     db.commit()
 
 
-################################################
-# BALANCES
-################################################
+def update_balances_from_payment(db: Session, payment: models.Payment):
+    balances = get_balances_by_group_id(db, payment.group_id)
+
+    # Update payer balance
+    payer = get_user_by_id(db, payment.from_id)
+    payer_balance = next(filter(lambda x: x.user_id == payer.id, balances))
+    payer_balance.current_balance += payment.amount
+
+    # Update payee balance
+    payee = get_user_by_id(db, payment.to_id)
+    payee_balance = next(filter(lambda x: x.user_id == payee.id, balances))
+    payee_balance.current_balance -= payment.amount
+
+    db.commit()
 
 
 def get_balances_by_group_id(db: Session, group_id: int) -> List[models.Balance]:

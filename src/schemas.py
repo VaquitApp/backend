@@ -109,6 +109,27 @@ class Spending(SpendingBase):
 
 
 ################################################
+# PAYMENTS
+################################################
+
+
+class PaymentBase(BaseModel):
+    group_id: int
+    from_id: int
+    to_id: int
+    amount: int
+    date: Optional[datetime] = Field(None)
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class Payment(PaymentBase):
+    id: int
+
+
+################################################
 # BUDGETS
 ################################################
 
@@ -161,9 +182,11 @@ class Invite(InviteBase):
     sender_id: int
     status: InviteStatus
 
+
 ################################################
 # REMINDERS
 ################################################
+
 
 class PaymentReminderBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
@@ -171,8 +194,10 @@ class PaymentReminderBase(BaseModel):
     group_id: int
     message: Optional[str] = Field(None)
 
+
 class PaymentReminderCreate(PaymentReminderBase):
     receiver_email: str
+
 
 class PaymentReminder(PaymentReminderBase):
     id: int
