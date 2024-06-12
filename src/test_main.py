@@ -48,6 +48,14 @@ def make_user_credentials(client: TestClient, email: str):
     assert response.status_code == HTTPStatus.CREATED
     return schemas.UserCredentials(**response.json())
 
+def add_user_to_group(client: TestClient, group_id: int, new_member_id: int, credentials: schemas.UserCredentials):
+    response = client.post(
+            url=f"/group/{group_id}/member",
+            headers={"x-user": credentials.jwt},
+            json={"user_identifier": new_member_id},
+        )
+    assert response.status_code == HTTPStatus.CREATED
+
 
 @pytest.fixture()
 def some_credentials(client: TestClient) -> schemas.UserCredentials:
@@ -930,12 +938,15 @@ def test_balance_multiple_members(
 ################################################
 # PAYMENT REMINDERS
 ################################################
+@pytest.fixture
 def some_payment_reminder(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
     some_other_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
+    add_user_to_group(client, some_group.id, some_other_credentials.id, some_credentials)
+
     # Create PaymentReminder
     response = client.post(
         url="/payment_reminder",
@@ -954,6 +965,11 @@ def some_payment_reminder(
     assert response_body["receiver_id"] == some_other_credentials.id
 
     return schemas.PaymentReminder(**response_body)
+
+def test_send_reminder(client: TestClient, some_payment_reminder: schemas.PaymentReminder):
+    # NOTE: test is inside fixture
+    pass
+
 
 def test_send_payment_reminder_to_non_registered_user(
     client: TestClient,
@@ -980,3 +996,33 @@ def test_send_payment_reminder_on_non_existant_group(
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
 
+def test_send_reminder_to_non_member(client: TestClient, some_credentials: schemas.UserCredentials, some_group: schemas.Group):
+
+    new_user = make_user_credentials(client, "pepitoelmascapo@gmail.com")
+
+    response = client.post(
+        url="/payment_reminder",
+        json={"receiver_email": new_user.email, "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+def test_send_reminder_to_archived_group(client: TestClient, 
+                                         some_credentials: schemas.UserCredentials, 
+                                         some_other_credentials: schemas.UserCredentials,
+                                         some_group: schemas.Group):
+    
+    add_user_to_group(client, some_group.id, some_other_credentials.id, some_credentials)
+
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+    response = client.post(
+        url="/payment_reminder",
+        json={"receiver_email": some_other_credentials.email, "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE

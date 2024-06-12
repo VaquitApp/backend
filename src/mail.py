@@ -9,9 +9,10 @@ from src import schemas
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
 API_KEY = os.environ.get("EMAIL_API_KEY")
+
 INVITE_TEMPLATE_ID = 1
 REMINDER_TEMPLATE_ID = 2
-
+DEFAULT_REMINDER = "No demores muucho con la deuda! :D"
 
 class MailSender(ABC):
     @abstractmethod
@@ -51,7 +52,7 @@ class ProdMailSender(MailSender):
             return False
     
     def send_reminder(
-        self, sender: str, receiver: str, group: schemas.Group) -> bool:
+        self, sender: str, receiver: str, group: schemas.Group, message: str = DEFAULT_REMINDER) -> bool:
         configuration = sdk.Configuration()
         configuration.api_key["api-key"] = API_KEY
 
@@ -60,7 +61,8 @@ class ProdMailSender(MailSender):
         to = [{"email": receiver}]
         params = {
             "sender": sender,
-            "group_id": group.id,
+            "message": message,
+            "landing_page":  f"{BASE_URL}",
             "group_name": group.name,
         }
 
