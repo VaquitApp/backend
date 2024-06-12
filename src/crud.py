@@ -177,8 +177,8 @@ def get_unique_spendings_by_group_id(db: Session, group_id: int):
 ################################################
 
 
-def create_installment_spending(db: Session, spending: schemas.InstallmentSpendingCreate, user_id: int):
-    db_spending = models.InstallmentSpending(owner_id=user_id, **dict(spending))
+def create_installment_spending(db: Session, spending: schemas.InstallmentSpendingCreate, user_id: int, current_installment:int):
+    db_spending = models.InstallmentSpending(owner_id=user_id, current_installment=current_installment,**dict(spending))
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
@@ -377,7 +377,7 @@ def create_payment_reminder(
 ################################################
 
 
-def update_balances_from_spending(db: Session, spending: models.Spending):
+def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
     group = get_group_by_id(db, spending.group_id)
     balances = sorted(
         get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id

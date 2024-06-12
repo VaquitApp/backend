@@ -7,6 +7,7 @@ from src import crud, models, schemas, auth
 from src.mail import MailSender, mail_service, is_expired_invite
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -357,7 +358,17 @@ def create_installment_spending(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
 
-    return crud.create_installment_spending(db, spending, user.id)
+    res = []
+
+    spending_description = spending.description
+    amount_of_installments = spending.amount_of_installments
+    spending_date = spending.date
+    for i in range(amount_of_installments):
+        spending.description = f"{spending_description} | cuota {i+1}/{amount_of_installments}"
+        spending.date = spending_date + timedelta(days=(30*i))
+        res.append(crud.create_installment_spending(db, spending, user.id, i+1))        
+
+    return res
 
 
 @app.get("/group/{group_id}/installment-spending")
