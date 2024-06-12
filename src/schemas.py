@@ -213,11 +213,6 @@ class InviteStatus(StrEnum):
     ACCEPTED = auto()
     EXPIRED = auto()
 
-class SpendingTypes(StrEnum):
-    UNIQUE = auto()
-    INSTALLMENT = auto()
-    RECURRING = auto()
-
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
     receiver_id: Optional[int] = Field(None)
