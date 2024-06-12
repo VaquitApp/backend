@@ -7,6 +7,7 @@ from src import crud, models, schemas, auth
 from src.mail import MailSender, mail_service, is_expired_invite
 from src.database import SessionLocal, engine
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -292,14 +293,26 @@ def list_group_categories(db: DbDependency, user: UserDependency, group_id: int)
     categories = crud.get_categories_by_group_id(db, group_id)
     return categories
 
+################################################
+# ALL SPENDINGS
+################################################
+
+@app.get("/group/{group_id}/spending")
+def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+
+    return crud.get_all_spendings_by_group_id(db, group_id)
+
 
 ################################################
-# SPENDINGS
+# UNIQUE SPENDINGS
 ################################################
 
 
-@app.post("/spending", status_code=HTTPStatus.CREATED)
-def create_spending(
+@app.post("/unique-spending", status_code=HTTPStatus.CREATED)
+def create_unique_spending(
     spending: schemas.SpendingCreate, db: DbDependency, user: UserDependency
 ):
     group = crud.get_group_by_id(db, spending.group_id)
@@ -313,25 +326,113 @@ def create_spending(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
 
-    return crud.create_spending(db, spending, user.id)
+    return crud.create_unique_spending(db, spending, user.id)
 
 
-@app.get("/spending")
-def list_spendings(db: DbDependency, user: UserDependency, group_id: int):
+@app.get("/group/{group_id}/unique-spending")
+def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
 
-    return crud.get_spendings_by_group_id(db, group_id)
+    return crud.get_unique_spendings_by_group_id(db, group_id)
 
 
-@app.get("/group/{group_id}/spending")
-def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
+################################################
+# INSTALLMENT SPENDINGS
+################################################
+
+
+@app.post("/installment-spending", status_code=HTTPStatus.CREATED)
+def create_installment_spending(
+    spending: schemas.InstallmentSpendingCreate, db: DbDependency, user: UserDependency
+):
+    group = crud.get_group_by_id(db, spending.group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+    check_group_is_unarchived(group)
+
+    category = crud.get_category_by_id(db, spending.category_id)
+    if category is None or category.group_id != spending.group_id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    res = []
+
+    spending_description = spending.description
+    amount_of_installments = spending.amount_of_installments
+    spending_date = spending.date
+    for i in range(amount_of_installments):
+        spending.description = f"{spending_description} | cuota {i+1}/{amount_of_installments}"
+        spending.date = spending_date + timedelta(days=(30*i))
+        res.append(crud.create_installment_spending(db, spending, user.id, i+1))        
+
+    return res
+
+
+@app.get("/group/{group_id}/installment-spending")
+def list_group_installment_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
 
-    return crud.get_spendings_by_group_id(db, group_id)
+    return crud.get_installment_spendings_by_group_id(db, group_id)
+
+
+
+################################################
+# RECURRING SPENDINGS
+################################################
+
+
+@app.post("/recurring-spending", status_code=HTTPStatus.CREATED)
+def create_recurring_spending(
+    spending: schemas.RecurringSpendingCreate, db: DbDependency, user: UserDependency
+):
+    group = crud.get_group_by_id(db, spending.group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+    check_group_is_unarchived(group)
+
+    category = crud.get_category_by_id(db, spending.category_id)
+    if category is None or category.group_id != spending.group_id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    return crud.create_recurring_spending(db, spending, user.id)
+
+
+@app.get("/group/{group_id}/recurring-spending")
+def list_group_recurring_spendings(db: DbDependency, user: UserDependency, group_id: int):
+    group = crud.get_group_by_id(db, group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+
+    return crud.get_recurring_spendings_by_group_id(db, group_id)
+
+@app.put("/recurring-spending/{recurring_spending_id}")
+def put_recurring_spendings(
+    db: DbDependency,
+    user: UserDependency,
+    recurring_spending_id: int,
+    put_recurring_spending: schemas.RecurringSpendingPut,
+):
+
+    db_recurring_spending = crud.get_recurring_spendings_by_id(db, recurring_spending_id)
+
+    if db_recurring_spending is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Gasto recurrente inexistente"
+        )
+
+    group = crud.get_group_by_id(db, db_recurring_spending.group_id)
+
+    check_group_exists_and_user_is_member(user.id, group)
+    check_group_is_unarchived(group)
+
+    return crud.put_recurring_spendings(db, db_recurring_spending, put_recurring_spending)
 
 
 ################################################

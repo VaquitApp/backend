@@ -54,9 +54,33 @@ class Category(Base):
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 
+class UniqueSpending(Base):
+    __tablename__ = "unique_spendings"
 
-class Spending(Base):
-    __tablename__ = "spendings"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(ForeignKey("categories.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class InstallmentSpending(Base):
+    __tablename__ = "installment_spendings"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(ForeignKey("categories.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    amount_of_installments = Column(Integer)
+    current_installment = Column(Integer)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+class RecurringSpending(Base):
+    __tablename__ = "recurring_spendings"
 
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
