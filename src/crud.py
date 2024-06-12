@@ -134,12 +134,27 @@ def add_user_to_group(db: Session, user: models.User, group: models.Group):
 
 
 ################################################
-# SPENDINGS
+# ALL SPENDINGS
 ################################################
 
+def get_all_spendings_by_group_id(db: Session, group_id: int):
+    
+    unique_spendings = db.query(models.UniqueSpending).filter(models.UniqueSpending.group_id == group_id).limit(100).all()
+    installment_spendings = db.query(models.InstallmentSpending).filter(models.InstallmentSpending.group_id == group_id).limit(100).all()
+    recurring_spendings = db.query(models.RecurringSpending).filter(models.RecurringSpending.group_id == group_id).limit(100).all()
 
-def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int):
-    db_spending = models.Spending(owner_id=user_id, **dict(spending))
+    unique_spendings = list(map(lambda spending: {**spending.__dict__, "type": "unique_spending"}, unique_spendings))
+    installment_spendings = list(map(lambda spending: {**spending.__dict__, "type": "installment_spending"}, installment_spendings))
+    recurring_spendings = list(map(lambda spending: {**spending.__dict__, "type": "recurring_spending"}, recurring_spendings))
+
+    return unique_spendings + installment_spendings + recurring_spendings
+
+################################################
+# UNIQUE SPENDINGS
+################################################
+
+def create_unique_spending(db: Session, spending: schemas.SpendingCreate, user_id: int):
+    db_spending = models.UniqueSpending(owner_id=user_id, **dict(spending))
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
@@ -148,23 +163,74 @@ def create_spending(db: Session, spending: schemas.SpendingCreate, user_id: int)
     return db_spending
 
 
-def get_spendings_by_group_id(db: Session, group_id: int):
+def get_unique_spendings_by_group_id(db: Session, group_id: int):
     return (
-        db.query(models.Spending)
-        .filter(models.Spending.group_id == group_id)
+        db.query(models.UniqueSpending)
+        .filter(models.UniqueSpending.group_id == group_id)
         .limit(100)
         .all()
     )
 
 
-def get_spendings_by_category(db: Session, category_id: int):
+################################################
+# INSTALLMENT SPENDINGS
+################################################
+
+
+def create_installment_spending(db: Session, spending: schemas.InstallmentSpendingCreate, user_id: int):
+    db_spending = models.InstallmentSpending(owner_id=user_id, **dict(spending))
+    db.add(db_spending)
+    db.commit()
+    db.refresh(db_spending)
+    # create_transactions_from_spending(db, db_spending)
+    db.refresh(db_spending)
+    return db_spending
+
+
+def get_installment_spendings_by_group_id(db: Session, group_id: int):
     return (
-        db.query(models.Spending)
-        .filter(models.Spending.category_id == category_id)
+        db.query(models.InstallmentSpending)
+        .filter(models.InstallmentSpending.group_id == group_id)
         .limit(100)
         .all()
     )
 
+
+################################################
+# RECURRING SPENDINGS
+################################################
+
+
+def create_recurring_spending(db: Session, spending: schemas.RecurringSpendingBase, user_id: int):
+    db_spending = models.RecurringSpending(owner_id=user_id, **dict(spending))
+    db.add(db_spending)
+    db.commit()
+    db.refresh(db_spending)
+    # create_transactions_from_spending(db, db_spending)
+    db.refresh(db_spending)
+    return db_spending
+
+
+def get_recurring_spendings_by_id(db: Session, recurring_spendig_id: int):
+    return db.query(models.RecurringSpending).filter(models.RecurringSpending.id == recurring_spendig_id).first()
+
+
+def get_recurring_spendings_by_group_id(db: Session, group_id: int):
+    return (
+        db.query(models.RecurringSpending)
+        .filter(models.RecurringSpending.group_id == group_id)
+        .limit(100)
+        .all()
+    )
+
+
+def put_recurring_spendings(db: Session, db_recurring_spending: models.RecurringSpending, put_recurring_spending: schemas.RecurringSpendingPut):
+    db_recurring_spending.amount = put_recurring_spending.amount
+    db_recurring_spending.description = put_recurring_spending.description
+    db_recurring_spending.category_id = put_recurring_spending.categiry_id
+    db.commit()
+    db.refresh(db_recurring_spending)
+    return db_recurring_spending
 
 ################################################
 # BUDGETS
@@ -242,7 +308,7 @@ def update_invite_status(
 ################################################
 
 
-def create_transactions_from_spending(db: Session, spending: models.Spending):
+def create_transactions_from_spending(db: Session, spending: models.UniqueSpending | models.InstallmentSpending | models.RecurringSpending):
     group = get_group_by_id(db, spending.group_id)
     balances = sorted(
         get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
