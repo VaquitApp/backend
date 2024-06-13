@@ -8,7 +8,6 @@ from sqlalchemy import (
     Integer,
     String,
     Boolean,
-    Table,
     UniqueConstraint,
     func,
     Enum,
@@ -19,14 +18,6 @@ from src.schemas import InviteStatus
 from src.database import Base
 
 
-user_to_group_table = Table(
-    "user_to_group_table",
-    Base.metadata,
-    Column("user_id", ForeignKey("users.id"), primary_key=True),
-    Column("group_id", ForeignKey("groups.id"), primary_key=True),
-)
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -34,7 +25,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     groups: Mapped[Set["Group"]] = relationship(
-        secondary=user_to_group_table, back_populates="members"
+        secondary="balances", back_populates="members"
     )
 
 
@@ -47,7 +38,7 @@ class Group(Base):
     description = Column(String)
     is_archived = Column(Boolean)
     members: Mapped[Set[User]] = relationship(
-        secondary=user_to_group_table, back_populates="groups"
+        secondary="balances", back_populates="groups"
     )
 
 
@@ -63,9 +54,8 @@ class Category(Base):
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 
-
-class Spending(Base):
-    __tablename__ = "spendings"
+class UniqueSpending(Base):
+    __tablename__ = "unique_spendings"
 
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
@@ -73,6 +63,42 @@ class Spending(Base):
     category_id = Column(ForeignKey("categories.id"))
     amount = Column(Integer)
     description = Column(String)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class InstallmentSpending(Base):
+    __tablename__ = "installment_spendings"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(ForeignKey("categories.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    amount_of_installments = Column(Integer)
+    current_installment = Column(Integer)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+class RecurringSpending(Base):
+    __tablename__ = "recurring_spendings"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(ForeignKey("categories.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(ForeignKey("groups.id"))
+    from_id = Column(ForeignKey("users.id"))
+    to_id = Column(ForeignKey("users.id"))
+    amount = Column(Integer)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
@@ -97,4 +123,26 @@ class Invite(Base):
     group_id = Column(ForeignKey("groups.id"))
     token = Column(UUID(as_uuid=True), unique=True, default=uuid4)
     status = Column(Enum(InviteStatus))
+    creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class Balance(Base):
+    __tablename__ = "balances"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    current_balance = Column(Integer, default=0)
+
+    __table_args__ = (UniqueConstraint("user_id", "group_id"),)
+
+
+class PaymentReminder(Base):
+    __tablename__ = "payment_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    receiver_id = Column(Integer, ForeignKey("users.id"))
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    message = Column(String)
     creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())

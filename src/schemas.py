@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -31,7 +31,7 @@ class UserCredentials(User):
 
 
 class AddUserToGroupRequest(BaseModel):
-    user_id: int
+    user_identifier: Union[int, str]
 
 
 ################################################
@@ -83,11 +83,11 @@ class Group(GroupBase):
 
 
 ################################################
-# SPENDINGS
+# UNIQUE SPENDINGS
 ################################################
 
 
-class SpendingBase(BaseModel):
+class UniqueSpendingBase(BaseModel):
     amount: int
     description: str
     date: Optional[datetime] = Field(None)
@@ -95,17 +95,86 @@ class SpendingBase(BaseModel):
     category_id: int
 
 
-class SpendingCreate(SpendingBase):
+class UniqueSpendingCreate(UniqueSpendingBase):
     pass
 
 
-class SpendingPut(SpendingBase):
-    pass
-
-
-class Spending(SpendingBase):
+class UniqueSpending(UniqueSpendingBase):
     id: int
     owner_id: int
+
+
+################################################
+# INSTALLMENT SPENDINGS
+################################################
+
+
+class InstallmentSpendingBase(BaseModel):
+    amount: int
+    description: str
+    date: Optional[datetime] = Field(None)
+    group_id: int
+    category_id: int
+    amount_of_installments: int
+
+
+class InstallmentSpendingCreate(InstallmentSpendingBase):
+    pass
+
+
+class InstallmentSpending(InstallmentSpendingBase):
+    id: int
+    owner_id: int
+    current_installment: int
+
+
+################################################
+# RECURRING SPENDINGS
+################################################
+
+
+class RecurringSpendingBase(BaseModel):
+    amount: int
+    description: str
+    date: Optional[datetime] = Field(None)
+    group_id: int
+    category_id: int
+
+
+class RecurringSpendingCreate(RecurringSpendingBase):
+    pass
+
+
+class RecurringSpendingPut(RecurringSpendingBase):
+    id: int
+    owner_id: int
+
+
+class RecurringSpending(RecurringSpendingBase):
+    id: int
+    owner_id: int
+
+################################################
+# PAYMENTS
+################################################
+
+
+class PaymentBase(BaseModel):
+    group_id: int
+    from_id: int
+    to_id: int
+    amount: int
+    date: Optional[datetime] = Field(None)
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class Payment(PaymentBase):
+    id: int
+
+
 
 
 ################################################
@@ -144,7 +213,6 @@ class InviteStatus(StrEnum):
     ACCEPTED = auto()
     EXPIRED = auto()
 
-
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)
     receiver_id: Optional[int] = Field(None)
@@ -160,3 +228,24 @@ class Invite(InviteBase):
     id: int
     sender_id: int
     status: InviteStatus
+
+
+################################################
+# REMINDERS
+################################################
+
+
+class PaymentReminderBase(BaseModel):
+    creation_date: Optional[datetime] = Field(None)
+    receiver_id: Optional[int] = Field(None)
+    group_id: int
+    message: Optional[str] = Field(None)
+
+
+class PaymentReminderCreate(PaymentReminderBase):
+    receiver_email: str
+
+
+class PaymentReminder(PaymentReminderBase):
+    id: int
+    sender_id: int

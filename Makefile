@@ -13,7 +13,7 @@ lint:
 
 test:
 	rm test.db 2> /dev/null || true
-	DB_NAME="./test.db" poetry run pytest -svv .
+	DB_NAME="./test.db" poetry run pytest -svvx --ff .
 
 CONTAINER_NAME="postgres_test_db"
 
