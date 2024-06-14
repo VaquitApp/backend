@@ -292,6 +292,24 @@ def list_group_categories(db: DbDependency, user: UserDependency, group_id: int)
     categories = crud.get_categories_by_group_id(db, group_id)
     return categories
 
+def check_strategy_data(group: models.Group, category: models.Category, strategy_data, spending_amount: int):
+    if category.strategy == schemas.Strategy.EQUALPARTS and strategy_data:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="El tipo de estrategia seleccionado no admite el campo 'strategy_data'"
+        )
+    
+    if strategy_data:
+        if any([not user_id_in_group(user_id, group) for user_id, _ in strategy_data]):
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND, detail="El usuario no ha sido encontrado"
+            )
+
+        if category.strategy == schemas.Strategy.PERCENTAGE and sum([perc for _, perc in strategy_data] != 100) or \
+            category.strategy == schemas.Strategy.CUSTOM and sum([amount for _, amount in strategy_data] != spending_amount):
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST, detail="La distribucion es incorrecta"
+            )
+
 
 ################################################
 # SPENDINGS
@@ -312,8 +330,9 @@ def create_spending(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
+    check_strategy_data(group, category, spending.strategy_data, spending.amount)
 
-    return crud.create_spending(db, spending, user.id)
+    return crud.create_spending(db, spending, user.id, category.strategy)
 
 
 @app.get("/spending")

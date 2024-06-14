@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import Optional, Union
+from typing import Optional, Union, Dict, List
+from typing_extensions import TypedDict
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -83,16 +84,32 @@ class Group(GroupBase):
 
 
 ################################################
+# STRATEGY
+################################################
+
+class Strategy(StrEnum):
+    EQUALPARTS = auto()
+    PERCENTAGE = auto()
+    CUSTOM = auto()
+
+
+class Distribution(TypedDict):
+    user_id: int
+    value: float
+
+
+################################################
 # SPENDINGS
 ################################################
 
 
 class SpendingBase(BaseModel):
-    amount: int
+    amount: float
     description: str
     date: Optional[datetime] = Field(None)
     group_id: int
     category_id: int
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 
 class SpendingCreate(SpendingBase):

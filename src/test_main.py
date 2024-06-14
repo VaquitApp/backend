@@ -622,7 +622,7 @@ def some_category(
             "name": "cafe",
             "description": "really long description 1234",
             "group_id": some_group.id,
-            "strategy": "a cool strategy",
+            "strategy": "EQUALPARTS",
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -664,7 +664,7 @@ def test_category_modify_name(
             "name": "nuevo nombre categoria",
             "description": "otra descripcion",
             # TODO: move strategy to enums
-            "strategy": "equitativo?",
+            "strategy": "EQUALPARTS",
         },
         headers={"x-user": some_credentials.jwt},
     )

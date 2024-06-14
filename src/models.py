@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Float,
     String,
     Boolean,
     UniqueConstraint,
@@ -14,7 +15,7 @@ from sqlalchemy import (
     UUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from src.schemas import InviteStatus
+from src.schemas import InviteStatus, Strategy
 from src.database import Base
 
 
@@ -49,8 +50,7 @@ class Category(Base):
     group_id = Column(ForeignKey("groups.id"))
     name = Column(String)
     description = Column(String)
-    # TODO: move strategy to enums
-    strategy = Column(String)
+    strategy = Column(Enum(Strategy))
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 
@@ -62,7 +62,7 @@ class Spending(Base):
     owner_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
     category_id = Column(ForeignKey("categories.id"))
-    amount = Column(Integer)
+    amount = Column(Float)
     description = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
