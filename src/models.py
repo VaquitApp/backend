@@ -54,9 +54,34 @@ class Category(Base):
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 
+class UniqueSpending(Base):
+    __tablename__ = "unique_spendings"
 
-class Spending(Base):
-    __tablename__ = "spendings"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(ForeignKey("categories.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    strategy_data = Column(String)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class InstallmentSpending(Base):
+    __tablename__ = "installment_spendings"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(ForeignKey("users.id"))
+    group_id = Column(ForeignKey("groups.id"))
+    category_id = Column(ForeignKey("categories.id"))
+    amount = Column(Integer)
+    description = Column(String)
+    amount_of_installments = Column(Integer)
+    current_installment = Column(Integer)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+class RecurringSpending(Base):
+    __tablename__ = "recurring_spendings"
 
     id = Column(Integer, primary_key=True)
     owner_id = Column(ForeignKey("users.id"))
@@ -64,6 +89,17 @@ class Spending(Base):
     category_id = Column(ForeignKey("categories.id"))
     amount = Column(Float)
     description = Column(String)
+    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(ForeignKey("groups.id"))
+    from_id = Column(ForeignKey("users.id"))
+    to_id = Column(ForeignKey("users.id"))
+    amount = Column(Integer)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
@@ -91,19 +127,6 @@ class Invite(Base):
     creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
-class Transaction(Base):
-    __tablename__ = "transactions"
-
-    id = Column(Integer, primary_key=True)
-    spending_id = Column(ForeignKey("spendings.id"))
-    from_user_id = Column(ForeignKey("users.id"))
-    to_user_id = Column(ForeignKey("users.id"))
-    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    amount = Column(Integer)
-
-    __table_args__ = (UniqueConstraint("spending_id", "to_user_id"),)
-
-
 class Balance(Base):
     __tablename__ = "balances"
 
@@ -113,3 +136,14 @@ class Balance(Base):
     current_balance = Column(Integer, default=0)
 
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
+
+
+class PaymentReminder(Base):
+    __tablename__ = "payment_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    receiver_id = Column(Integer, ForeignKey("users.id"))
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    message = Column(String)
+    creation_date: Mapped[datetime] = mapped_column(DateTime, default=func.now())

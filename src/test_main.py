@@ -49,6 +49,20 @@ def make_user_credentials(client: TestClient, email: str):
     return schemas.UserCredentials(**response.json())
 
 
+def add_user_to_group(
+    client: TestClient,
+    group_id: int,
+    new_member_id: int,
+    credentials: schemas.UserCredentials,
+):
+    response = client.post(
+        url=f"/group/{group_id}/member",
+        headers={"x-user": credentials.jwt},
+        json={"user_identifier": new_member_id},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+
+
 @pytest.fixture()
 def some_credentials(client: TestClient) -> schemas.UserCredentials:
     return make_user_credentials(client, "example@example.com")
@@ -372,7 +386,7 @@ def some_spending(
     some_category: schemas.Category,
 ):
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -389,10 +403,10 @@ def some_spending(
     assert response_body["group_id"] == some_group.id
     assert response_body["category_id"] == some_category.id
     assert response_body
-    return schemas.Spending(**response_body)
+    return schemas.UniqueSpending(**response_body)
 
 
-def test_create_new_spending(client: TestClient, some_spending: schemas.Spending):
+def test_create_new_spending(client: TestClient, some_spending: schemas.UniqueSpending):
     # NOTE: test is inside fixture
     pass
 
@@ -404,7 +418,7 @@ def test_create_new_spending_with_default_date(
     some_category: schemas.Category,
 ):
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -427,7 +441,7 @@ def test_create_new_spending_with_non_existant_category(
     some_group: schemas.Group,
 ):
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -442,16 +456,15 @@ def test_create_new_spending_with_non_existant_category(
 def test_get_spendings(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
-    some_spending: schemas.Spending,
+    some_spending: schemas.UniqueSpending,
 ):
     response = client.get(
-        url="/spending",
-        params={"group_id": some_spending.group_id},
+        url=f"/group/{some_spending.group_id}/spending",
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.OK
     assert len(response.json()) == 1
-    assert schemas.Spending(**response.json()[0]) == some_spending
+    assert schemas.UniqueSpending(**response.json()[0]) == some_spending
 
 
 def test_create_spending_on_archived_group(
@@ -467,7 +480,7 @@ def test_create_spending_on_archived_group(
     assert response.status_code == HTTPStatus.OK
 
     response = client.post(
-        url="/spending",
+        url="/unique-spending",
         json={
             "amount": 500,
             "description": "bought some féca",
@@ -882,7 +895,7 @@ def test_try_join_already_member(
 def test_balance_single_group_member(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
-    some_spending: schemas.Spending,
+    some_spending: schemas.UniqueSpending,
 ):
     response = client.get(
         url=f"/group/{some_spending.group_id}/balance",
@@ -903,7 +916,7 @@ def test_balance_single_group_member(
 def test_balance_multiple_members(
     client: TestClient,
     some_group_members: list[schemas.UserCredentials],
-    some_spending: schemas.Spending,
+    some_spending: schemas.UniqueSpending,
 ):
     response = client.get(
         url=f"/group/{some_spending.group_id}/balance",
@@ -926,3 +939,187 @@ def test_balance_multiple_members(
             some_spending.amount if user.id == some_spending.owner_id else 0
         )
         assert balance["current_balance"] == expected_balance
+
+
+################################################
+# PAYMENTS
+################################################
+
+
+@pytest.fixture
+def some_payment(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    res = client.post(
+        url=f"/group/{some_group.id}/member",
+        json={
+            "user_identifier": some_other_credentials.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert res.status_code == HTTPStatus.CREATED
+
+    response = client.post(
+        url="/payment",
+        json={
+            "group_id": some_group.id,
+            "from_id": some_credentials.id,
+            "to_id": some_other_credentials.id,
+            "amount": 500,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    return schemas.Payment(**response_body)
+
+
+def test_create_payment(some_payment: schemas.Payment):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_payment_updates_balance(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment: schemas.Payment,
+):
+    response = client.get(
+        url=f"/group/{some_payment.group_id}/balance",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    balance_list = response.json()
+    assert len(balance_list) == 2
+
+    balance_list.sort(key=lambda x: x["user_id"])
+    [some_balance, some_other_balance] = balance_list
+
+    assert some_balance["user_id"] == some_credentials.id
+    assert some_balance["group_id"] == some_payment.group_id
+    assert some_balance["current_balance"] == some_payment.amount
+
+    assert some_other_balance["user_id"] == some_other_credentials.id
+    assert some_other_balance["group_id"] == some_payment.group_id
+    assert some_other_balance["current_balance"] == -some_payment.amount
+
+
+################################################
+# PAYMENT REMINDERS
+################################################
+
+
+@pytest.fixture
+def some_payment_reminder(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    add_user_to_group(
+        client, some_group.id, some_other_credentials.id, some_credentials
+    )
+
+    # Create PaymentReminder
+    response = client.post(
+        url="/payment_reminder",
+        json={
+            "receiver_email": some_other_credentials.email,
+            "group_id": some_group.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+
+    assert "creation_date" in response_body
+    assert response_body["group_id"] == some_group.id
+    assert response_body["sender_id"] == some_credentials.id
+    assert response_body["receiver_id"] == some_other_credentials.id
+
+    return schemas.PaymentReminder(**response_body)
+
+
+def test_send_reminder(
+    client: TestClient, some_payment_reminder: schemas.PaymentReminder
+):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_send_payment_reminder_to_non_registered_user(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/payment_reminder",
+        json={
+            "receiver_email": "pepe@gmail.com",
+            "group_id": some_group.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_send_payment_reminder_on_non_existant_group(
+    client: TestClient, some_credentials: schemas.UserCredentials
+):
+    response = client.post(
+        url="/payment_reminder",
+        json={"receiver_email": some_credentials.email, "group_id": 12345},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_send_reminder_to_non_member(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    new_user = make_user_credentials(client, "pepitoelmascapo@gmail.com")
+
+    response = client.post(
+        url="/payment_reminder",
+        json={"receiver_email": new_user.email, "group_id": some_group.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_send_reminder_to_archived_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    add_user_to_group(
+        client, some_group.id, some_other_credentials.id, some_credentials
+    )
+
+    response = client.put(
+        url=f"/group/{some_group.id}/archive", headers={"x-user": some_credentials.jwt}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url="/payment_reminder",
+        json={
+            "receiver_email": some_other_credentials.email,
+            "group_id": some_group.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
