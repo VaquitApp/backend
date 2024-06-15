@@ -346,7 +346,7 @@ def create_unique_spending(
     check_strategy_data(group, category, spending.strategy_data, spending.amount)
 
     #return crud.create_spending(db, spending, user.id, category.strategy)
-    return crud.create_unique_spending(db, spending, user.id)
+    return crud.create_unique_spending(db, spending, user.id, category.strategy)
 
 
 @app.get("/group/{group_id}/unique-spending")

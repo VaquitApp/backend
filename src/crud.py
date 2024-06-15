@@ -160,13 +160,13 @@ def get_all_spendings_by_group_id(db: Session, group_id: int):
 # UNIQUE SPENDINGS
 ################################################
 
-def create_unique_spending(db: Session, spending: schemas.UniqueSpendingCreate, user_id: int):
+def create_unique_spending(db: Session, spending: schemas.UniqueSpendingCreate, user_id: int, category: models.Strategy):
     db_spending = models.UniqueSpending(owner_id=user_id, **dict(spending))
     db_spending.strategy_data = None
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending, category, spending.strategy_data)
     db.refresh(db_spending)
     return db_spending
 
@@ -360,15 +360,8 @@ def create_payment_reminder(
 # BALANCES
 ################################################
 
-def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
-    group = get_group_by_id(db, spending.group_id)
-    balances = sorted(
-        get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
-    )
-    members = sorted(group.members, key=lambda x: x.id)
-    # TODO: implement division strategy
-    # TODO: this truncates decimals
-    amount_per_member = spending.amount // len(members)
+def update_balances_equals(db, spending, members, balances):
+    amount_per_member = spending.amount / len(members)
     for user, balance in zip(members, balances):
         amount = -amount_per_member
 
@@ -377,39 +370,38 @@ def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
 
         balance.current_balance += amount
 
-    db.commit()
-
-
-def create_transactions_percentage(db, spending, members, balances, strategy_data):
-    
+def update_balances_percentage(db, spending, members, balances, strategy_data):
     for user, balance in zip(members, balances):
         amount_per_member = sum([v if k == user.id else 0 for k, v in strategy_data.items()])
         amount_per_member = spending.amount * (amount_per_member / 100)
         amount = spending.amount - amount_per_member if spending.owner_id == user.id else -amount_per_member
-        tx = models.Transaction(
-            from_user_id=spending.owner_id,
-            to_user_id=user.id,
-            amount= amount,
-            spending_id=spending.id,
-        )
-        db.add(tx)
         balance.current_balance += amount
     db.commit()
 
 
-def create_transactions_custom(db, spending, members, balances, strategy_data):
-    
+def update_balances_custom(db, spending, members, balances, strategy_data):
     for user, balance in zip(members, balances):
         amount_per_member = sum([v if k == user.id else 0 for k, v in strategy_data.items()])
         amount = spending.amount - amount_per_member if spending.owner_id == user.id else -amount_per_member
-        tx = models.Transaction(
-            from_user_id=spending.owner_id,
-            to_user_id=user.id,
-            amount= amount,
-            spending_id=spending.id,
-        )
-        db.add(tx)
         balance.current_balance += amount
+    db.commit()
+
+def update_balances_from_spending(db: Session, spending: models.UniqueSpending, strategy: models.Strategy, strategy_data):
+    group = get_group_by_id(db, spending.group_id)
+    balances = sorted(
+        get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
+    )
+    members = sorted(group.members, key=lambda x: x.id)
+    # TODO: implement division strategy
+    # TODO: this truncates decimals
+    # TODO: Refactor to POO
+    if strategy == models.Strategy.EQUALPARTS:
+        update_balances_equals(db, spending, members, balances)
+    elif strategy == models.Strategy.PERCENTAGE:
+        update_balances_percentage(db, spending, members, balances, strategy_data)
+    elif strategy == models.Strategy.CUSTOM:
+        update_balances_custom(db, spending, members, balances, strategy_data)
+    
     db.commit()
 
 ################################################
