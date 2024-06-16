@@ -208,6 +208,131 @@ def test_login_with_wrong_email(client: TestClient):
 
 
 ################################################
+# Profile
+################################################
+
+
+def test_get_user(client: TestClient, some_credentials: schemas.UserCredentials):
+    response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+
+    body =  response.json()
+    assert "id" in body
+    assert body["email"] == some_credentials.email
+    assert body["cbu"] == ""
+    assert body["alias"] == ""
+    assert body["has_google"] == False
+
+
+def test_update_user_profile(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"alias": "vaquitapp.2024", "cbu": "142934712095126345"}
+    first_response = client.put(
+        url="/user/profile",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    assert first_response.status_code == HTTPStatus.OK
+
+    second_response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = second_response.json()
+    assert body["cbu"] == post_body["cbu"]
+    assert body["alias"] == post_body["alias"]
+
+
+def test_link_google_signin(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    first_response = client.put(
+        url="/user/googleSignIn",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    assert first_response.status_code == HTTPStatus.OK
+
+    second_response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = second_response.json()
+    assert body["has_google"] == True
+
+
+def test_fail_duplicated_google_signin(client: TestClient,
+                                       some_credentials: schemas.UserCredentials,
+                                       some_other_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    client.put(
+        url="/user/googleSignIn",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    second_response = client.put(
+        url="/user/googleSignIn",
+        headers={"x-user": some_other_credentials.jwt},
+        json=post_body
+    )
+
+    assert second_response.status_code == HTTPStatus.CONFLICT
+
+
+def test_unlink_google_signin(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    client.put(
+        url="/user/googleSignIn",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    second_response = client.delete(
+        url="/user/googleSignIn",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert second_response.status_code == HTTPStatus.OK
+
+    third_response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = third_response.json()
+    assert body["has_google"] == False
+
+
+def test_invalid_google_signin(client: TestClient):
+    post_body = {"token": "142934712095126345"}
+    response = client.post( url="/user/googleSignIn", json=post_body)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert not "jwt" in response.json()
+
+
+def test_valid_google_signin(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    client.put(
+        url="/user/googleSignIn",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    response = client.post( url="/user/googleSignIn", json=post_body)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "jwt" in response.json()
+
+
+################################################
 # GROUPS
 ################################################
 
@@ -613,10 +738,6 @@ def test_create_budget_on_archived_group(
     )
     assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
 
-
-################################################
-# CATEGORIES
-################################################
 
 ################################################
 # CATEGORIES

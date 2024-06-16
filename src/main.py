@@ -85,6 +85,49 @@ def login(user: schemas.UserLogin, db: DbDependency) -> schemas.UserCredentials:
     return credentials
 
 
+@app.get("/user", status_code=HTTPStatus.OK)
+def get_auth_user(db: DbDependency, user: UserDependency) -> schemas.User:
+    return crud.get_user_by_email(db, email=user.email)
+
+
+@app.put("/user/profile", status_code=HTTPStatus.OK)
+def update_user_profile(data: schemas.UserProfile, db: DbDependency, user: UserDependency):
+    crud.update_user(db, user, data)
+    return {"detail": "Detalles actualizados correctamente"}
+
+
+@app.put("/user/googleSignIn", status_code=HTTPStatus.OK)
+def link_google_signin(data: schemas.UserGoogleCredentials, db: DbDependency, user: UserDependency):
+    db_user = crud.get_user_by_google_signin(db, data)
+    if db_user and db_user.id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT, detail="Su cuenta se encuentra vinculada a otro usuario"
+        )
+
+    crud.update_user_google_signin(db, user, data)
+    return {"detail": "Detalles actualizados correctamente"}
+
+
+@app.delete("/user/googleSignIn", status_code=HTTPStatus.OK)
+def unlink_google_signin(db: DbDependency, user: UserDependency):
+    data = schemas.UserGoogleCredentials.empty_credentials()
+    crud.update_user_google_signin(db, user, data)
+    return {"detail": "Detalles actualizados correctamente"}
+
+
+@app.post("/user/googleSignIn", status_code=HTTPStatus.OK)
+def login_google_signin(data: schemas.UserGoogleCredentials, db: DbDependency):
+    db_user = crud.get_user_by_google_signin(db, data)
+
+    if db_user is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Usuario no existe"
+        )
+
+    credentials = auth.login_user(db_user)
+    return credentials
+
+
 ################################################
 # GROUPS
 ################################################
