@@ -373,6 +373,31 @@ def test_add_user_to_group(
     assert sorted([u["id"] for u in body]) == expected_members
 
 
+def test_leave_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create new user
+    new_user = make_user_credentials(client, "some_random_email@email.com")
+    add_user_to_group(client, some_group.id, new_user.id, some_credentials)
+
+    # Leave group
+    response = client.delete(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": new_user.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # GET group members
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": new_user.jwt},
+    )
+    # Fails because user is not in group
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 ################################################
 # SPENDINGS
 ################################################
@@ -489,7 +514,7 @@ def test_create_spending_on_archived_group(
         },
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+    assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 ################################################
@@ -611,7 +636,7 @@ def test_create_budget_on_archived_group(
         },
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+    assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 ################################################
@@ -1122,4 +1147,4 @@ def test_send_reminder_to_archived_group(
         },
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+    assert response.status_code == HTTPStatus.BAD_REQUEST

@@ -119,6 +119,11 @@ def get_group_by_id(db: Session, group_id: int):
     return db.query(models.Group).filter(models.Group.id == group_id).first()
 
 
+def get_group_members(db: Session, group: models.Group):
+    balances = set(b.user_id for b in get_balances_by_group_id(db, group.id))
+    return list(filter(lambda u: u.id in balances, group.members))
+
+
 def update_group_status(db: Session, group: models.Group, status: bool):
     group.is_archived = status
     db.commit()
@@ -133,11 +138,11 @@ def add_user_to_group(db: Session, user: models.User, group: models.Group):
     return group
 
 
-def delete_user_from_group(db: Session, user: models.User, group: models.Group):
-    group.members.remove(user)
+def leave_group(db: Session, balance: models.Balance):
+    balance.left = True
     db.commit()
-    db.refresh(group)
-    return group
+    db.refresh(balance)
+    return balance
 
 
 ################################################
@@ -453,7 +458,7 @@ def update_balances_from_payment(db: Session, payment: models.Payment):
 def get_balances_by_group_id(db: Session, group_id: int) -> List[models.Balance]:
     return (
         db.query(models.Balance)
-        .filter(models.Balance.group_id == group_id)
+        .filter(models.Balance.group_id == group_id, models.Balance.left != True)
         .limit(100)
         .all()
     )
