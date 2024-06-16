@@ -620,7 +620,13 @@ def send_invite(
     if user_id_in_group(db, receiver.id, target_group):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"El usuario ya es miembro del equipo {target_group.name}",
+            detail=f"El usuario ya es miembro del grupo {target_group.name}",
+        )
+
+    if receiver.id in list(m.id for m in target_group.members):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"El usuario abandonó el grupo {target_group.name}",
         )
 
     token = uuid4()
@@ -670,6 +676,12 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
+        )
+
+    if user.id in list(m.id for m in target_group.members):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"El usuario abandonó el grupo {target_group.name}",
         )
 
     crud.add_user_to_group(db, user, target_group)
