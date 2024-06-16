@@ -493,12 +493,8 @@ def confirm_payment(db: DbDependency, user: UserDependency, payment_id: int):
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"Solo el receptor del pago puede confirmarlo.",
         )
-
-    confirmed_payment = crud.confirm_payment(db, payment)
-
-    # TODO Actualizar Balances
-
-    return confirmed_payment
+    
+    return crud.confirm_payment(db, payment)
 
 
 @app.get("/payment")
