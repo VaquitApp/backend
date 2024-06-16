@@ -110,9 +110,8 @@ def get_groups_by_user_id(db: Session, user_id: int):
             .where(models.Group.members.any(models.User.id == user_id))
             .join(
                 models.Balance,
-                models.Group.id
-                == models.Balance.group_id & models.Balance.user_id
-                == user_id,
+                (models.Group.id == models.Balance.group_id)
+                & (models.Balance.user_id == user_id),
             )
             .filter(models.Balance.left != True)
             .limit(100)
