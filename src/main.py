@@ -293,9 +293,11 @@ def list_group_categories(db: DbDependency, user: UserDependency, group_id: int)
     categories = crud.get_categories_by_group_id(db, group_id)
     return categories
 
+
 ################################################
 # ALL SPENDINGS
 ################################################
+
 
 @app.get("/group/{group_id}/spending")
 def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
@@ -364,21 +366,24 @@ def create_installment_spending(
     amount_of_installments = spending.amount_of_installments
     spending_date = spending.date
     for i in range(amount_of_installments):
-        spending.description = f"{spending_description} | cuota {i+1}/{amount_of_installments}"
-        spending.date = spending_date + timedelta(days=(30*i))
-        res.append(crud.create_installment_spending(db, spending, user.id, i+1))        
+        spending.description = (
+            f"{spending_description} | cuota {i+1}/{amount_of_installments}"
+        )
+        spending.date = spending_date + timedelta(days=(30 * i))
+        res.append(crud.create_installment_spending(db, spending, user.id, i + 1))
 
     return res
 
 
 @app.get("/group/{group_id}/installment-spending")
-def list_group_installment_spendings(db: DbDependency, user: UserDependency, group_id: int):
+def list_group_installment_spendings(
+    db: DbDependency, user: UserDependency, group_id: int
+):
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
 
     return crud.get_installment_spendings_by_group_id(db, group_id)
-
 
 
 ################################################
@@ -405,12 +410,15 @@ def create_recurring_spending(
 
 
 @app.get("/group/{group_id}/recurring-spending")
-def list_group_recurring_spendings(db: DbDependency, user: UserDependency, group_id: int):
+def list_group_recurring_spendings(
+    db: DbDependency, user: UserDependency, group_id: int
+):
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_member(user.id, group)
 
     return crud.get_recurring_spendings_by_group_id(db, group_id)
+
 
 @app.put("/recurring-spending/{recurring_spending_id}")
 def put_recurring_spendings(
@@ -420,7 +428,9 @@ def put_recurring_spendings(
     put_recurring_spending: schemas.RecurringSpendingPut,
 ):
 
-    db_recurring_spending = crud.get_recurring_spendings_by_id(db, recurring_spending_id)
+    db_recurring_spending = crud.get_recurring_spendings_by_id(
+        db, recurring_spending_id
+    )
 
     if db_recurring_spending is None:
         raise HTTPException(
@@ -432,7 +442,9 @@ def put_recurring_spendings(
     check_group_exists_and_user_is_member(user.id, group)
     check_group_is_unarchived(group)
 
-    return crud.put_recurring_spendings(db, db_recurring_spending, put_recurring_spending)
+    return crud.put_recurring_spendings(
+        db, db_recurring_spending, put_recurring_spending
+    )
 
 
 ################################################
@@ -464,6 +476,31 @@ def create_payment(
         )
 
     return crud.create_payment(db, payment)
+
+
+@app.post("/payment/{payment_id}/confirm", status_code=HTTPStatus.OK)
+def confirm_payment(db: DbDependency, user: UserDependency, payment_id: int):
+
+    payment = crud.get_payment_by_id(db, payment_id)
+    if payment is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"No se consiguió el pago.",
+        )
+
+    if payment.confirmed:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Este pago ya fue confirmado.",
+        )
+
+    if payment.to_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Solo el receptor del pago puede confirmarlo.",
+        )
+
+    return crud.confirm_payment(db, payment)
 
 
 @app.get("/payment")
