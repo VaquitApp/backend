@@ -1032,6 +1032,19 @@ def test_confirm_non_existant_payment(
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
+def test_confirm_already_confirmed(
+    client: TestClient,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment_confirmation: schemas.Payment,
+):
+
+    response = client.post(
+        url=f"/payment/{some_payment_confirmation.id}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
 def test_payment_updates_balance(
     client: TestClient,
     some_credentials: schemas.UserCredentials,

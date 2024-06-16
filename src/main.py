@@ -485,7 +485,13 @@ def confirm_payment(db: DbDependency, user: UserDependency, payment_id: int):
     if payment is None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
-            detail=f"No se consiguió el pago con ID: {payment_id}.",
+            detail=f"No se consiguió el pago.",
+        )
+
+    if payment.confirmed:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Este pago ya fue confirmado.",
         )
 
     if payment.to_id != user.id:
@@ -493,7 +499,7 @@ def confirm_payment(db: DbDependency, user: UserDependency, payment_id: int):
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"Solo el receptor del pago puede confirmarlo.",
         )
-    
+
     return crud.confirm_payment(db, payment)
 
 
