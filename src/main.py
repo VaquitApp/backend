@@ -96,7 +96,7 @@ def update_user_profile(data: schemas.UserProfile, db: DbDependency, user: UserD
     return {"detail": "Detalles actualizados correctamente"}
 
 
-@app.put("/user/googleSignIn", status_code=HTTPStatus.OK)
+@app.put("/user/google-signin", status_code=HTTPStatus.OK)
 def link_google_signin(data: schemas.UserGoogleCredentials, db: DbDependency, user: UserDependency):
     db_user = crud.get_user_by_google_signin(db, data)
     if db_user and db_user.id != user.id:
@@ -108,14 +108,14 @@ def link_google_signin(data: schemas.UserGoogleCredentials, db: DbDependency, us
     return {"detail": "Detalles actualizados correctamente"}
 
 
-@app.delete("/user/googleSignIn", status_code=HTTPStatus.OK)
+@app.delete("/user/google-signin", status_code=HTTPStatus.OK)
 def unlink_google_signin(db: DbDependency, user: UserDependency):
     data = schemas.UserGoogleCredentials.empty_credentials()
     crud.update_user_google_signin(db, user, data)
     return {"detail": "Detalles actualizados correctamente"}
 
 
-@app.post("/user/googleSignIn", status_code=HTTPStatus.OK)
+@app.post("/user/google-signin", status_code=HTTPStatus.OK)
 def login_google_signin(data: schemas.UserGoogleCredentials, db: DbDependency):
     db_user = crud.get_user_by_google_signin(db, data)
 
@@ -679,7 +679,7 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
 ################################################
 
 
-@app.post("/payment_reminder", status_code=HTTPStatus.CREATED)
+@app.post("/payment-reminder", status_code=HTTPStatus.CREATED)
 def send_payment_reminder(
     db: DbDependency,
     user: UserDependency,
