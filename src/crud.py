@@ -108,6 +108,13 @@ def get_groups_by_user_id(db: Session, user_id: int):
         db.execute(
             select(models.Group)
             .where(models.Group.members.any(models.User.id == user_id))
+            .join(
+                models.Balance,
+                models.Group.id
+                == models.Balance.group_id & models.Balance.user_id
+                == user_id,
+            )
+            .filter(models.Balance.left != True)
             .limit(100)
         )
         .scalars()
@@ -119,7 +126,7 @@ def get_group_by_id(db: Session, group_id: int):
     return db.query(models.Group).filter(models.Group.id == group_id).first()
 
 
-def get_group_members(db: Session, group: models.Group):
+def get_active_members(db: Session, group: models.Group):
     balances = set(b.user_id for b in get_balances_by_group_id(db, group.id))
     return list(filter(lambda u: u.id in balances, group.members))
 
@@ -424,7 +431,7 @@ def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
     balances = sorted(
         get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
     )
-    members = sorted(group.members, key=lambda x: x.id)
+    members = sorted(get_active_members(db, group), key=lambda x: x.id)
     # TODO: implement division strategy
     # TODO: this truncates decimals
     amount_per_member = spending.amount // len(members)

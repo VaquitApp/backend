@@ -99,7 +99,7 @@ def check_group_is_unarchived(group: models.Group):
 
 
 def user_id_in_group(db: Session, user_id: int, group: models.Group) -> bool:
-    members = crud.get_group_members(db, group)
+    members = crud.get_active_members(db, group)
     return any(member.id == user_id for member in members)
 
 
@@ -192,7 +192,7 @@ def add_user_to_group(
 
     group = crud.add_user_to_group(db, user_to_add, group)
 
-    return crud.get_group_members(db, group)
+    return crud.get_active_members(db, group)
 
 
 @app.get("/group/{group_id}/member")
@@ -201,7 +201,7 @@ def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
 
     check_group_exists_and_user_is_member(db, user.id, group)
 
-    return crud.get_group_members(db, group)
+    return crud.get_active_members(db, group)
 
 
 @app.delete("/group/{group_id}/member")
