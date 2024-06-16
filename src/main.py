@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
@@ -205,18 +205,27 @@ def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
 
 
 @app.delete("/group/{group_id}/member")
-def leave_group(db: DbDependency, user: UserDependency, group_id: int):
+def kick_from_group(
+    db: DbDependency, user: UserDependency, group_id: int, user_id: Optional[int]
+):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(db, user.id, group)
+    if user_id is None or user_id == user.id:
+        user_id = user.id
+    else:
+        # Check caller is owner
+        check_group_exists_and_user_is_owner(db, user.id, group)
 
-    if user.id == group.owner_id:
+    if user_id == group.owner_id:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="El dueño del grupo no puede abandonarlo",
         )
 
-    user_balance = crud.get_user_balance(db, user.id, group_id)
+    # Check user to kick is in the group
+    check_group_exists_and_user_is_member(db, user_id, group)
+
+    user_balance = crud.get_user_balance(db, user_id, group_id)
 
     # The user is a member, so the balance should exist
     assert user_balance is not None
@@ -229,7 +238,7 @@ def leave_group(db: DbDependency, user: UserDependency, group_id: int):
 
     crud.leave_group(db, user_balance)
 
-    return {"detail": "Ha salido del grupo correctamente"}
+    return {"detail": "El usuario abandonó el grupo correctamente"}
 
 
 @app.put("/group/{group_id}/archive", status_code=HTTPStatus.OK)
