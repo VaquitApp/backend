@@ -170,6 +170,7 @@ class RecurringSpending(RecurringSpendingBase):
     id: int
     owner_id: int
 
+
 ################################################
 # PAYMENTS
 ################################################
@@ -189,8 +190,6 @@ class PaymentCreate(PaymentBase):
 
 class Payment(PaymentBase):
     id: int
-
-
 
 
 ################################################
@@ -228,6 +227,7 @@ class InviteStatus(StrEnum):
     PENDING = auto()
     ACCEPTED = auto()
     EXPIRED = auto()
+
 
 class InviteBase(BaseModel):
     creation_date: Optional[datetime] = Field(None)

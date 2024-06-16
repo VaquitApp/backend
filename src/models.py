@@ -54,6 +54,7 @@ class Category(Base):
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 
+
 class UniqueSpending(Base):
     __tablename__ = "unique_spendings"
 
@@ -80,6 +81,7 @@ class InstallmentSpending(Base):
     current_installment = Column(Integer)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
+
 class RecurringSpending(Base):
     __tablename__ = "recurring_spendings"
 
@@ -100,6 +102,7 @@ class Payment(Base):
     from_id = Column(ForeignKey("users.id"))
     to_id = Column(ForeignKey("users.id"))
     amount = Column(Integer)
+    confirmed = Column(Boolean, default=False)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
