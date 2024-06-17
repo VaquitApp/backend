@@ -108,6 +108,12 @@ def get_groups_by_user_id(db: Session, user_id: int):
         db.execute(
             select(models.Group)
             .where(models.Group.members.any(models.User.id == user_id))
+            .join(
+                models.Balance,
+                (models.Group.id == models.Balance.group_id)
+                & (models.Balance.user_id == user_id),
+            )
+            .filter(models.Balance.left != True)
             .limit(100)
         )
         .scalars()
@@ -117,6 +123,11 @@ def get_groups_by_user_id(db: Session, user_id: int):
 
 def get_group_by_id(db: Session, group_id: int):
     return db.query(models.Group).filter(models.Group.id == group_id).first()
+
+
+def get_active_members(db: Session, group: models.Group):
+    balances = set(b.user_id for b in get_balances_by_group_id(db, group.id))
+    return list(filter(lambda u: u.id in balances, group.members))
 
 
 def update_group_status(db: Session, group: models.Group, status: bool):
@@ -131,6 +142,21 @@ def add_user_to_group(db: Session, user: models.User, group: models.Group):
     db.commit()
     db.refresh(group)
     return group
+
+
+def readd_user_to_group(db: Session, user: models.User, group: models.Group):
+    balance = get_user_balance(db, user.id, group.id)
+    balance.left = False
+    db.commit()
+    db.refresh(balance)
+    return balance
+
+
+def leave_group(db: Session, balance: models.Balance):
+    balance.left = True
+    db.commit()
+    db.refresh(balance)
+    return balance
 
 
 ################################################
@@ -423,7 +449,7 @@ def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
     balances = sorted(
         get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
     )
-    members = sorted(group.members, key=lambda x: x.id)
+    members = sorted(get_active_members(db, group), key=lambda x: x.id)
     # TODO: implement division strategy
     # TODO: this truncates decimals
     amount_per_member = spending.amount // len(members)
@@ -457,7 +483,17 @@ def update_balances_from_payment(db: Session, payment: models.Payment):
 def get_balances_by_group_id(db: Session, group_id: int) -> List[models.Balance]:
     return (
         db.query(models.Balance)
-        .filter(models.Balance.group_id == group_id)
+        .filter(models.Balance.group_id == group_id, models.Balance.left != True)
         .limit(100)
         .all()
+    )
+
+
+def get_user_balance(
+    db: Session, user_id: int, group_id: int
+) -> Optional[models.Balance]:
+    return (
+        db.query(models.Balance)
+        .filter(models.Balance.user_id == user_id, models.Balance.group_id == group_id)
+        .first()
     )

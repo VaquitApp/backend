@@ -136,6 +136,7 @@ class Balance(Base):
     user_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
     current_balance = Column(Integer, default=0)
+    left = Column(Boolean, default=False)
 
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
 
