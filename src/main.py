@@ -190,7 +190,7 @@ def add_user_to_group(
             detail=f"El usuario ya es miembro del grupo {group.name}",
         )
 
-    if user.id in list(m.id for m in group.members):
+    if user_to_add.id in list(m.id for m in group.members):
         crud.readd_user_to_group(db, user_to_add, group)
     else:
         group = crud.add_user_to_group(db, user_to_add, group)
