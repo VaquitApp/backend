@@ -318,8 +318,13 @@ def update_category(
     return crud.update_category(db, category, category_update)
 
 
-@app.delete("/category/{category_id}")
-def delete_category(db: DbDependency, user: UserDependency, category_id: int):
+@app.put("/category/{category_id}/is_archived")
+def update_category_status(
+    new_status: schemas.CategoryStatusUpdate,
+    db: DbDependency,
+    user: UserDependency,
+    category_id: int,
+):
     category = crud.get_category_by_id(db, category_id)
     if category is None:
         raise HTTPException(
@@ -328,7 +333,7 @@ def delete_category(db: DbDependency, user: UserDependency, category_id: int):
     group = crud.get_group_by_id(db, category.group_id)
     check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
-    return crud.delete_category(db, category)
+    return crud.update_category_status(db, category, new_status.is_archived)
 
 
 @app.get("/group/{group_id}/category")

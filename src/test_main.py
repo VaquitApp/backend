@@ -669,10 +669,6 @@ def test_create_budget_on_archived_group(
 # CATEGORIES
 ################################################
 
-################################################
-# CATEGORIES
-################################################
-
 
 @pytest.fixture
 def some_category(
@@ -703,20 +699,6 @@ def test_create_new_category(client: TestClient, some_category: schemas.Category
     pass
 
 
-def test_category_delete(
-    client: TestClient,
-    some_credentials: schemas.UserCredentials,
-    some_category: schemas.Category,
-):
-    response = client.delete(
-        url=f"/category/{some_category.id}",
-        headers={"x-user": some_credentials.jwt},
-    )
-
-    assert response.status_code == HTTPStatus.OK
-    assert response.json() == some_category.model_dump()
-
-
 def test_category_modify_name(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
@@ -738,6 +720,32 @@ def test_category_modify_name(
     assert "group_id" in response_body
     assert response_body["name"] == "nuevo nombre categoria"
     assert response_body["description"] == "otra descripcion"
+
+
+def test_archive_category(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_category: schemas.Category,
+):
+    response = client.put(
+        url=f"/category/{some_category.id}/is_archived",
+        json={"is_archived": True},
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK, response.json()
+    response_body = response.json()
+    assert response_body["is_archived"] == True
+
+    response = client.put(
+        url=f"/category/{some_category.id}/is_archived",
+        json={"is_archived": False},
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK, response.json()
+    response_body = response.json()
+    assert response_body["is_archived"] == False
 
 
 ################################################

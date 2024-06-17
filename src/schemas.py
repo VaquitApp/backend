@@ -48,6 +48,7 @@ class CategoryBase(BaseModel):
 class Category(CategoryBase):
     id: int
     group_id: int
+    is_archived: bool
 
 
 class CategoryCreate(CategoryBase):
@@ -56,6 +57,10 @@ class CategoryCreate(CategoryBase):
 
 class CategoryUpdate(CategoryBase):
     pass
+
+
+class CategoryStatusUpdate(BaseModel):
+    is_archived: bool
 
 
 ################################################

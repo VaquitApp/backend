@@ -49,6 +49,7 @@ class Category(Base):
     group_id = Column(ForeignKey("groups.id"))
     name = Column(String)
     description = Column(String)
+    is_archived = Column(Boolean, default=False)
     # TODO: move strategy to enums
     strategy = Column(String)
 
