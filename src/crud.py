@@ -318,11 +318,14 @@ def put_recurring_spendings(
 
 def create_payment(db: Session, payment: schemas.PaymentCreate):
     db_payment = models.Payment(**dict(payment))
-    update_balances_from_payment(db, db_payment)
     db.add(db_payment)
     db.commit()
     db.refresh(db_payment)
     return db_payment
+
+
+def get_payment_by_id(db: Session, payment_id: int):
+    return db.query(models.Payment).filter(models.Payment.id == payment_id).first()
 
 
 def get_payments_by_group_id(db: Session, group_id: int):
@@ -332,6 +335,14 @@ def get_payments_by_group_id(db: Session, group_id: int):
         .limit(100)
         .all()
     )
+
+
+def confirm_payment(db: Session, db_payment: models.Payment):
+    db_payment.confirmed = True
+    update_balances_from_payment(db, db_payment)
+    db.commit()
+    db.refresh(db_payment)
+    return db_payment
 
 
 ################################################

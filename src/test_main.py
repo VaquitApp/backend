@@ -1048,14 +1048,9 @@ def some_payment(
     some_other_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-    res = client.post(
-        url=f"/group/{some_group.id}/member",
-        json={
-            "user_identifier": some_other_credentials.id,
-        },
-        headers={"x-user": some_credentials.jwt},
+    add_user_to_group(
+        client, some_group.id, some_other_credentials.id, some_credentials
     )
-    assert res.status_code == HTTPStatus.CREATED
 
     response = client.post(
         url="/payment",
@@ -1075,9 +1070,74 @@ def some_payment(
     return schemas.Payment(**response_body)
 
 
+@pytest.fixture
+def some_payment_confirmation(
+    client: TestClient,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment: schemas.Payment,
+):
+    response = client.post(
+        url=f"/payment/{some_payment.id}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    response_body = response.json()
+    assert response.status_code == HTTPStatus.OK
+    assert response_body["confirmed"] == True
+    return schemas.Payment(**response_body)
+
+
 def test_create_payment(some_payment: schemas.Payment):
     # NOTE: test is inside fixture
     pass
+
+
+def test_create_payment_confirmation(some_payment_confirmation: schemas.Payment):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_confirm_non_existant_payment(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    add_user_to_group(
+        client, some_group.id, some_other_credentials.id, some_credentials
+    )
+
+    response = client.post(
+        url=f"/payment/{123}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_confirm_non_existant_payment(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_payment: schemas.Payment,
+):
+
+    response = client.post(
+        url=f"/payment/{some_payment.id}/confirm",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_confirm_already_confirmed(
+    client: TestClient,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment_confirmation: schemas.Payment,
+):
+
+    response = client.post(
+        url=f"/payment/{some_payment_confirmation.id}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 def test_payment_updates_balance(
@@ -1085,9 +1145,10 @@ def test_payment_updates_balance(
     some_credentials: schemas.UserCredentials,
     some_other_credentials: schemas.UserCredentials,
     some_payment: schemas.Payment,
+    some_payment_confirmation: schemas.Payment,
 ):
     response = client.get(
-        url=f"/group/{some_payment.group_id}/balance",
+        url=f"/group/{some_payment_confirmation.group_id}/balance",
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.OK

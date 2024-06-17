@@ -523,6 +523,31 @@ def create_payment(
     return crud.create_payment(db, payment)
 
 
+@app.post("/payment/{payment_id}/confirm", status_code=HTTPStatus.OK)
+def confirm_payment(db: DbDependency, user: UserDependency, payment_id: int):
+
+    payment = crud.get_payment_by_id(db, payment_id)
+    if payment is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"No se consiguió el pago.",
+        )
+
+    if payment.confirmed:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Este pago ya fue confirmado.",
+        )
+
+    if payment.to_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Solo el receptor del pago puede confirmarlo.",
+        )
+
+    return crud.confirm_payment(db, payment)
+
+
 @app.get("/payment")
 def list_payments(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)

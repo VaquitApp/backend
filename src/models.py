@@ -101,6 +101,7 @@ class Payment(Base):
     from_id = Column(ForeignKey("users.id"))
     to_id = Column(ForeignKey("users.id"))
     amount = Column(Integer)
+    confirmed = Column(Boolean, default=False)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
