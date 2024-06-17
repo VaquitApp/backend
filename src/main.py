@@ -190,7 +190,10 @@ def add_user_to_group(
             detail=f"El usuario ya es miembro del grupo {group.name}",
         )
 
-    group = crud.add_user_to_group(db, user_to_add, group)
+    if user.id in list(m.id for m in group.members):
+        crud.readd_user_to_group(db, user_to_add, group)
+    else:
+        group = crud.add_user_to_group(db, user_to_add, group)
 
     return crud.get_active_members(db, group)
 
@@ -632,12 +635,6 @@ def send_invite(
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
-    if receiver.id in list(m.id for m in target_group.members):
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"El usuario abandonó el grupo {target_group.name}",
-        )
-
     token = uuid4()
     sent_ok = mail.send_invite(
         sender=user.email, receiver=receiver.email, group=target_group, token=token.hex
@@ -688,12 +685,10 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
         )
 
     if user.id in list(m.id for m in target_group.members):
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"El usuario abandonó el grupo {target_group.name}",
-        )
+        crud.readd_user_to_group(db, user, target_group)
+    else:
+        crud.add_user_to_group(db, user, target_group)
 
-    crud.add_user_to_group(db, user, target_group)
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
 
 

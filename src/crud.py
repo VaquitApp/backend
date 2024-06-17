@@ -144,6 +144,14 @@ def add_user_to_group(db: Session, user: models.User, group: models.Group):
     return group
 
 
+def readd_user_to_group(db: Session, user: models.User, group: models.Group):
+    balance = get_user_balance(db, user.id, group.id)
+    balance.left = False
+    db.commit()
+    db.refresh(balance)
+    return balance
+
+
 def leave_group(db: Session, balance: models.Balance):
     balance.left = True
     db.commit()
