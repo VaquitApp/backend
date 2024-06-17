@@ -22,12 +22,29 @@ class UserCreate(UserBase):
     password: str
 
 
+class UserCredentials(UserBase):
+    id: int
+    jwt: str
+
+
 class User(UserBase):
     id: int
+    alias: str
+    cbu: str
+    has_google: bool
 
 
-class UserCredentials(User):
-    jwt: str
+class UserProfile(BaseModel):
+    alias: str
+    cbu: str
+
+
+class UserGoogleCredentials(BaseModel):
+    token: str
+
+    @classmethod
+    def empty_credentials(cls):
+        return UserGoogleCredentials(token="")
 
 
 class AddUserToGroupRequest(BaseModel):

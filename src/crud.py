@@ -21,11 +21,30 @@ def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     hashed_password = auth.compute_password_hash(user.password)
-    db_user = models.User(email=user.email, hashed_password=hashed_password)
+    db_user = models.User.new(user.email, hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def update_user(db: Session, db_user: schemas.User, data: schemas.UserProfile) -> models.User:
+    db_user.alias = data.alias
+    db_user.cbu = data.cbu
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def update_user_google_signin(db: Session, db_user: schemas.User, data: schemas.UserGoogleCredentials) -> models.User:
+    db_user.google_token = data.token
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def get_user_by_google_signin(db: Session, data: schemas.UserGoogleCredentials) -> models.User:
+    return db.query(models.User).filter(models.User.google_token == data.token).first()
 
 
 ################################################

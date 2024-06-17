@@ -208,6 +208,131 @@ def test_login_with_wrong_email(client: TestClient):
 
 
 ################################################
+# Profile
+################################################
+
+
+def test_get_user(client: TestClient, some_credentials: schemas.UserCredentials):
+    response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+
+    body =  response.json()
+    assert "id" in body
+    assert body["email"] == some_credentials.email
+    assert body["cbu"] == ""
+    assert body["alias"] == ""
+    assert body["has_google"] == False
+
+
+def test_update_user_profile(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"alias": "vaquitapp.2024", "cbu": "142934712095126345"}
+    first_response = client.put(
+        url="/user/profile",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    assert first_response.status_code == HTTPStatus.OK
+
+    second_response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = second_response.json()
+    assert body["cbu"] == post_body["cbu"]
+    assert body["alias"] == post_body["alias"]
+
+
+def test_link_google_signin(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    first_response = client.put(
+        url="/user/google-signin",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    assert first_response.status_code == HTTPStatus.OK
+
+    second_response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = second_response.json()
+    assert body["has_google"] == True
+
+
+def test_fail_duplicated_google_signin(client: TestClient,
+                                       some_credentials: schemas.UserCredentials,
+                                       some_other_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    client.put(
+        url="/user/google-signin",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    second_response = client.put(
+        url="/user/google-signin",
+        headers={"x-user": some_other_credentials.jwt},
+        json=post_body
+    )
+
+    assert second_response.status_code == HTTPStatus.CONFLICT
+
+
+def test_unlink_google_signin(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    client.put(
+        url="/user/google-signin",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    second_response = client.delete(
+        url="/user/google-signin",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert second_response.status_code == HTTPStatus.OK
+
+    third_response = client.get(
+        url=f"/user",
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    body = third_response.json()
+    assert body["has_google"] == False
+
+
+def test_invalid_google_signin(client: TestClient):
+    post_body = {"token": "142934712095126345"}
+    response = client.post( url="/user/google-signin", json=post_body)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert not "jwt" in response.json()
+
+
+def test_valid_google_signin(client: TestClient, some_credentials: schemas.UserCredentials):
+    post_body = {"token": "142934712095126345"}
+    client.put(
+        url="/user/google-signin",
+        headers={"x-user": some_credentials.jwt},
+        json=post_body
+    )
+
+    response = client.post( url="/user/google-signin", json=post_body)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "jwt" in response.json()
+
+
+################################################
 # GROUPS
 ################################################
 
@@ -613,10 +738,6 @@ def test_create_budget_on_archived_group(
     )
     assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
 
-
-################################################
-# CATEGORIES
-################################################
 
 ################################################
 # CATEGORIES
@@ -1030,7 +1151,7 @@ def some_payment_reminder(
 
     # Create PaymentReminder
     response = client.post(
-        url="/payment_reminder",
+        url="/payment-reminder",
         json={
             "receiver_email": some_other_credentials.email,
             "group_id": some_group.id,
@@ -1061,7 +1182,7 @@ def test_send_payment_reminder_to_non_registered_user(
     some_group: schemas.Group,
 ):
     response = client.post(
-        url="/payment_reminder",
+        url="/payment-reminder",
         json={
             "receiver_email": "pepe@gmail.com",
             "group_id": some_group.id,
@@ -1075,7 +1196,7 @@ def test_send_payment_reminder_on_non_existant_group(
     client: TestClient, some_credentials: schemas.UserCredentials
 ):
     response = client.post(
-        url="/payment_reminder",
+        url="/payment-reminder",
         json={"receiver_email": some_credentials.email, "group_id": 12345},
         headers={"x-user": some_credentials.jwt},
     )
@@ -1091,7 +1212,7 @@ def test_send_reminder_to_non_member(
     new_user = make_user_credentials(client, "pepitoelmascapo@gmail.com")
 
     response = client.post(
-        url="/payment_reminder",
+        url="/payment-reminder",
         json={"receiver_email": new_user.email, "group_id": some_group.id},
         headers={"x-user": some_credentials.jwt},
     )
@@ -1115,7 +1236,7 @@ def test_send_reminder_to_archived_group(
     assert response.status_code == HTTPStatus.OK
 
     response = client.post(
-        url="/payment_reminder",
+        url="/payment-reminder",
         json={
             "receiver_email": some_other_credentials.email,
             "group_id": some_group.id,
