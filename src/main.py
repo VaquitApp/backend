@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
@@ -190,7 +190,10 @@ def add_user_to_group(
             detail=f"El usuario ya es miembro del grupo {group.name}",
         )
 
-    group = crud.add_user_to_group(db, user_to_add, group)
+    if user.id in list(m.id for m in group.members):
+        crud.readd_user_to_group(db, user_to_add, group)
+    else:
+        group = crud.add_user_to_group(db, user_to_add, group)
 
     return crud.get_active_members(db, group)
 
@@ -205,18 +208,27 @@ def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
 
 
 @app.delete("/group/{group_id}/member")
-def leave_group(db: DbDependency, user: UserDependency, group_id: int):
+def kick_from_group(
+    db: DbDependency, user: UserDependency, group_id: int, user_id: Optional[int] = None
+):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(db, user.id, group)
+    if user_id is None or user_id == user.id:
+        user_id = user.id
+    else:
+        # Check caller is owner
+        check_group_exists_and_user_is_owner(db, user.id, group)
 
-    if user.id == group.owner_id:
+    if user_id == group.owner_id:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="El dueño del grupo no puede abandonarlo",
         )
 
-    user_balance = crud.get_user_balance(db, user.id, group_id)
+    # Check user to kick is in the group
+    check_group_exists_and_user_is_member(db, user_id, group)
+
+    user_balance = crud.get_user_balance(db, user_id, group_id)
 
     # The user is a member, so the balance should exist
     assert user_balance is not None
@@ -229,7 +241,7 @@ def leave_group(db: DbDependency, user: UserDependency, group_id: int):
 
     crud.leave_group(db, user_balance)
 
-    return {"detail": "Ha salido del grupo correctamente"}
+    return {"detail": "El usuario abandonó el grupo correctamente"}
 
 
 @app.put("/group/{group_id}/archive", status_code=HTTPStatus.OK)
@@ -623,12 +635,6 @@ def send_invite(
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
-    if receiver.id in list(m.id for m in target_group.members):
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"El usuario abandonó el grupo {target_group.name}",
-        )
-
     token = uuid4()
     sent_ok = mail.send_invite(
         sender=user.email, receiver=receiver.email, group=target_group, token=token.hex
@@ -679,12 +685,10 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
         )
 
     if user.id in list(m.id for m in target_group.members):
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"El usuario abandonó el grupo {target_group.name}",
-        )
+        crud.readd_user_to_group(db, user, target_group)
+    else:
+        crud.add_user_to_group(db, user, target_group)
 
-    crud.add_user_to_group(db, user, target_group)
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
 
 
