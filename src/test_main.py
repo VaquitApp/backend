@@ -387,6 +387,32 @@ def test_leave_group(
         url=f"/group/{some_group.id}/member",
         headers={"x-user": new_user.jwt},
     )
+    assert response.status_code == HTTPStatus.OK, response.json()
+
+    # GET group members
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": new_user.jwt},
+    )
+    # Fails because user is not in group
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_kick_from_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create new user
+    new_user = make_user_credentials(client, "some_random_email@email.com")
+    add_user_to_group(client, some_group.id, new_user.id, some_credentials)
+
+    # Kick
+    response = client.delete(
+        url=f"/group/{some_group.id}/member",
+        params={"user_id": new_user.id},
+        headers={"x-user": some_credentials.jwt},
+    )
     assert response.status_code == HTTPStatus.OK
 
     # GET group members
@@ -964,6 +990,50 @@ def test_balance_multiple_members(
             some_spending.amount if user.id == some_spending.owner_id else 0
         )
         assert balance["current_balance"] == expected_balance
+
+
+def test_spendings_dont_update_kicked_users_balance(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_category: schemas.Category,
+):
+    # Create new user
+    new_user = make_user_credentials(client, "some_random_email@email.com")
+    add_user_to_group(client, some_group.id, new_user.id, some_credentials)
+
+    # Kick
+    response = client.delete(
+        url=f"/group/{some_group.id}/member",
+        params={"user_id": new_user.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url="/unique-spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_id": some_category.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+
+    response = client.get(
+        url=f"/group/{some_group.id}/balance",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+    balance_list = response.json()
+    assert len(balance_list) == 1
+
+    body = balance_list[0]
+    assert body["user_id"] == some_credentials.id
+    assert body["group_id"] == some_group.id
+    assert body["current_balance"] == 0
 
 
 ################################################

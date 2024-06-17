@@ -206,7 +206,7 @@ def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
 
 @app.delete("/group/{group_id}/member")
 def kick_from_group(
-    db: DbDependency, user: UserDependency, group_id: int, user_id: Optional[int]
+    db: DbDependency, user: UserDependency, group_id: int, user_id: Optional[int] = None
 ):
     group = crud.get_group_by_id(db, group_id)
 
