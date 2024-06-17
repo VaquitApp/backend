@@ -276,6 +276,14 @@ def list_group_balances(db: DbDependency, user: UserDependency, group_id: int):
 ################################################
 
 
+def check_category_is_unarchived(category: models.Category):
+    if category.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="La categoria esta archivada, no se pueden realizar modificaciones",
+        )
+
+
 @app.post("/category", status_code=HTTPStatus.CREATED)
 def create_category(
     category: schemas.CategoryCreate,
@@ -350,7 +358,7 @@ def list_group_categories(db: DbDependency, user: UserDependency, group_id: int)
 
 
 @app.get("/group/{group_id}/spending")
-def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
+def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
     check_group_exists_and_user_is_member(db, user.id, group)
@@ -377,6 +385,8 @@ def create_unique_spending(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
+
+    check_category_is_unarchived(category)
 
     return crud.create_unique_spending(db, spending, user.id)
 
@@ -409,6 +419,7 @@ def create_installment_spending(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
+    check_category_is_unarchived(category)
 
     res = []
 
@@ -455,6 +466,8 @@ def create_recurring_spending(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
+
+    check_category_is_unarchived(category)
 
     return crud.create_recurring_spending(db, spending, user.id)
 
@@ -577,15 +590,21 @@ def list_group_payments(db: DbDependency, user: UserDependency, group_id: int):
 
 
 @app.post("/budget", status_code=HTTPStatus.CREATED)
-def create_budget(
-    spending: schemas.BudgetCreate, db: DbDependency, user: UserDependency
-):
-    group = crud.get_group_by_id(db, spending.group_id)
+def create_budget(budget: schemas.BudgetCreate, db: DbDependency, user: UserDependency):
+    group = crud.get_group_by_id(db, budget.group_id)
 
     check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
 
-    return crud.create_budget(db, spending)
+    category = crud.get_category_by_id(db, budget.category_id)
+    if category is None or category.group_id != budget.group_id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    check_category_is_unarchived(category)
+
+    return crud.create_budget(db, budget)
 
 
 @app.get("/budget/{budget_id}")
@@ -612,6 +631,10 @@ def put_budget(
 
     check_group_exists_and_user_is_member(db, user.id, group)
     check_group_is_unarchived(group)
+
+    category = crud.get_category_by_id(db, db_budget.category_id)
+
+    check_category_is_unarchived(category)
 
     return crud.put_budget(db, db_budget, put_budget)
 
