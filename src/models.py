@@ -28,6 +28,23 @@ class User(Base):
     groups: Mapped[Set["Group"]] = relationship(
         secondary="balances", back_populates="members"
     )
+    alias = Column(String)
+    cbu = Column(String)
+    google_token = Column(String)
+
+    @property
+    def has_google(self):
+        return self.google_token != ""
+    
+    @classmethod
+    def new(cls, email, hashed_password):
+        return cls(
+            email=email,
+            hashed_password=hashed_password,
+            alias="",
+            cbu="",
+            google_token=""
+        )
 
 
 class Group(Base):
