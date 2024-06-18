@@ -418,6 +418,7 @@ def create_installment_spending(
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
     if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
@@ -433,7 +434,7 @@ def create_installment_spending(
             f"{spending_description} | cuota {i+1}/{amount_of_installments}"
         )
         spending.date = spending_date + timedelta(days=(30 * i))
-        res.append(crud.create_installment_spending(db, spending, user.id, i + 1))
+        res.append(crud.create_installment_spending(db, spending, user.id, i + 1, category.strategy))
 
     return res
 
@@ -464,12 +465,14 @@ def create_recurring_spending(
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
+
     if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
 
-    return crud.create_recurring_spending(db, spending, user.id)
+    return crud.create_recurring_spending(db, spending, user.id, category.strategy)
 
 
 @app.get("/group/{group_id}/recurring-spending")

@@ -241,6 +241,7 @@ def create_installment_spending(
     spending: schemas.InstallmentSpendingCreate,
     user_id: int,
     current_installment: int,
+    strategy
 ):
     db_spending = models.InstallmentSpending(
         owner_id=user_id, current_installment=current_installment, **dict(spending)
@@ -248,7 +249,7 @@ def create_installment_spending(
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending, strategy, spending.strategy_data)
     db.refresh(db_spending)
     return db_spending
 
@@ -268,13 +269,13 @@ def get_installment_spendings_by_group_id(db: Session, group_id: int):
 
 
 def create_recurring_spending(
-    db: Session, spending: schemas.RecurringSpendingBase, user_id: int
+    db: Session, spending: schemas.RecurringSpendingCreate, user_id: int, strategy
 ):
     db_spending = models.RecurringSpending(owner_id=user_id, **dict(spending))
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending, strategy, spending.strategy_data)
     db.refresh(db_spending)
     return db_spending
 

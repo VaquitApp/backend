@@ -108,12 +108,9 @@ class UniqueSpendingBase(BaseModel):
     date: Optional[datetime] = Field(None)
     group_id: int
     category_id: int
-    strategy_data: Optional[List[Distribution]] = Field(None)
-
 
 class UniqueSpendingCreate(UniqueSpendingBase):
-    pass
-
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 class UniqueSpending(UniqueSpendingBase):
     id: int
@@ -135,7 +132,7 @@ class InstallmentSpendingBase(BaseModel):
 
 
 class InstallmentSpendingCreate(InstallmentSpendingBase):
-    pass
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 
 class InstallmentSpending(InstallmentSpendingBase):
@@ -158,7 +155,7 @@ class RecurringSpendingBase(BaseModel):
 
 
 class RecurringSpendingCreate(RecurringSpendingBase):
-    pass
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 
 class RecurringSpendingPut(RecurringSpendingBase):
