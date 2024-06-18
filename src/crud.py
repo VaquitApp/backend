@@ -218,15 +218,13 @@ def get_all_spendings_by_group_id(db: Session, group_id: int):
 # UNIQUE SPENDINGS
 ################################################
 
-
-def create_unique_spending(
-    db: Session, spending: schemas.UniqueSpendingCreate, user_id: int
-):
+def create_unique_spending(db: Session, spending: schemas.UniqueSpendingCreate, user_id: int, category: models.Strategy):
     db_spending = models.UniqueSpending(owner_id=user_id, **dict(spending))
+    db_spending.strategy_data = None
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending, category, spending.strategy_data)
     db.refresh(db_spending)
     return db_spending
 
@@ -250,6 +248,7 @@ def create_installment_spending(
     spending: schemas.InstallmentSpendingCreate,
     user_id: int,
     current_installment: int,
+    strategy
 ):
     db_spending = models.InstallmentSpending(
         owner_id=user_id, current_installment=current_installment, **dict(spending)
@@ -257,7 +256,7 @@ def create_installment_spending(
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending, strategy, spending.strategy_data)
     db.refresh(db_spending)
     return db_spending
 
@@ -277,13 +276,13 @@ def get_installment_spendings_by_group_id(db: Session, group_id: int):
 
 
 def create_recurring_spending(
-    db: Session, spending: schemas.RecurringSpendingBase, user_id: int
+    db: Session, spending: schemas.RecurringSpendingCreate, user_id: int, strategy
 ):
     db_spending = models.RecurringSpending(owner_id=user_id, **dict(spending))
     db.add(db_spending)
     db.commit()
     db.refresh(db_spending)
-    update_balances_from_spending(db, db_spending)
+    update_balances_from_spending(db, db_spending, strategy, spending.strategy_data)
     db.refresh(db_spending)
     return db_spending
 
@@ -312,7 +311,7 @@ def put_recurring_spendings(
 ):
     db_recurring_spending.amount = put_recurring_spending.amount
     db_recurring_spending.description = put_recurring_spending.description
-    db_recurring_spending.category_id = put_recurring_spending.categiry_id
+    db_recurring_spending.category_id = put_recurring_spending.category_id
     db.commit()
     db.refresh(db_recurring_spending)
     return db_recurring_spending
@@ -427,7 +426,6 @@ def update_invite_status(
 # REMINDERS
 ################################################
 
-
 def create_payment_reminder(
     db: Session, payment_reminder: schemas.PaymentReminderCreate, sender_id: int
 ):
@@ -450,16 +448,8 @@ def create_payment_reminder(
 # BALANCES
 ################################################
 
-
-def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
-    group = get_group_by_id(db, spending.group_id)
-    balances = sorted(
-        get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
-    )
-    members = sorted(get_active_members(db, group), key=lambda x: x.id)
-    # TODO: implement division strategy
-    # TODO: this truncates decimals
-    amount_per_member = spending.amount // len(members)
+def update_balances_equals(db, spending, members, balances):
+    amount_per_member = spending.amount / len(members)
     for user, balance in zip(members, balances):
         amount = -amount_per_member
 
@@ -468,9 +458,43 @@ def update_balances_from_spending(db: Session, spending: models.UniqueSpending):
 
         balance.current_balance += amount
 
+def update_balances_percentage(db, spending, members, balances, strategy_data):
+    for user, balance in zip(members, balances):
+
+        amount_per_member = sum([data['value'] if data['user_id'] == user.id else 0 for data in strategy_data])
+        amount_per_member = spending.amount * (amount_per_member / 100)
+        amount = spending.amount - amount_per_member if spending.owner_id == user.id else -amount_per_member
+        balance.current_balance += amount
     db.commit()
 
 
+def update_balances_custom(db, spending, members, balances, strategy_data):
+    for user, balance in zip(members, balances):
+        amount_per_member = sum([data['value'] if data['user_id'] == user.id else 0 for data in strategy_data])
+        amount = spending.amount - amount_per_member if spending.owner_id == user.id else -amount_per_member
+        balance.current_balance += amount
+    db.commit()
+
+def update_balances_from_spending(db: Session, spending: models.UniqueSpending, strategy: models.Strategy, strategy_data):
+    group = get_group_by_id(db, spending.group_id)
+    balances = sorted(
+        get_balances_by_group_id(db, spending.group_id), key=lambda x: x.user_id
+    )
+
+    members = sorted(get_active_members(db, group), key=lambda x: x.id)
+    # TODO: Refactor to OOP
+    if strategy == models.Strategy.EQUALPARTS:
+        update_balances_equals(db, spending, members, balances)
+    elif strategy == models.Strategy.PERCENTAGE:
+        update_balances_percentage(db, spending, members, balances, strategy_data)
+    elif strategy == models.Strategy.CUSTOM:
+        update_balances_custom(db, spending, members, balances, strategy_data)
+    
+    db.commit()
+
+################################################
+# BALANCES
+################################################
 def update_balances_from_payment(db: Session, payment: models.Payment):
     balances = get_balances_by_group_id(db, payment.group_id)
 

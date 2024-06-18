@@ -351,6 +351,24 @@ def list_group_categories(db: DbDependency, user: UserDependency, group_id: int)
     categories = crud.get_categories_by_group_id(db, group_id)
     return categories
 
+def check_strategy_data(group: models.Group, category: models.Category, strategy_data, spending_amount: int, db):
+    if category.strategy == schemas.Strategy.EQUALPARTS and strategy_data:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="El tipo de estrategia seleccionado no admite el campo 'strategy_data'"
+        )
+    
+    if strategy_data:
+        if any([not user_id_in_group(db, data['user_id'], group) for data in strategy_data]):
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND, detail=f"El usuario no ha sido encontrado{strategy_data}"
+            )
+
+        if category.strategy == schemas.Strategy.PERCENTAGE and sum([data['value'] for data in strategy_data]) != 100 or \
+            category.strategy == schemas.Strategy.CUSTOM and sum([data['value'] for data in strategy_data]) != spending_amount:
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST, detail="La distribucion es incorrecta"
+            )
+        
 
 ################################################
 # ALL SPENDINGS
@@ -385,11 +403,9 @@ def create_unique_spending(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
-
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
     check_category_is_unarchived(category)
-
-    return crud.create_unique_spending(db, spending, user.id)
-
+    return crud.create_unique_spending(db, spending, user.id, category.strategy)
 
 @app.get("/group/{group_id}/unique-spending")
 def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
@@ -415,6 +431,7 @@ def create_installment_spending(
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
     if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
@@ -431,7 +448,7 @@ def create_installment_spending(
             f"{spending_description} | cuota {i+1}/{amount_of_installments}"
         )
         spending.date = spending_date + timedelta(days=(30 * i))
-        res.append(crud.create_installment_spending(db, spending, user.id, i + 1))
+        res.append(crud.create_installment_spending(db, spending, user.id, i + 1, category.strategy))
 
     return res
 
@@ -462,14 +479,15 @@ def create_recurring_spending(
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
+
     if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
 
     check_category_is_unarchived(category)
-
-    return crud.create_recurring_spending(db, spending, user.id)
+    return crud.create_recurring_spending(db, spending, user.id, category.strategy)
 
 
 @app.get("/group/{group_id}/recurring-spending")

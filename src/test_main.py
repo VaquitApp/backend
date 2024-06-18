@@ -485,7 +485,96 @@ def test_create_new_spending_with_default_date(
     assert response_body["category_id"] == some_category.id
     assert datetime.datetime.fromisoformat(response_body["date"])
 
+def test_create_new_spending_percentage_category(
+    client: TestClient,
+    some_group_members: list[schemas.UserCredentials],
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_category_percentage: schemas.Category,
+):
+    response = client.post(
+        url="/unique-spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_id": some_category_percentage.id,
+            "strategy_data":[
+            {
+                "user_id": some_group_members[0].id,
+                "value": 20
+            },
+            {
+                "user_id": some_group_members[1].id,
+                "value": 80
+            }]
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    assert response_body["category_id"] == some_category_percentage.id
 
+
+    balances_response = client.get(
+        url=f"/group/{some_group.id}/balance",
+        headers={"x-user": some_group_members[0].jwt},
+    )
+
+
+    balance_list = balances_response.json()
+    balance_list.sort(key=lambda x: x["user_id"])
+
+    assert balance_list[0]["current_balance"] == 400
+    assert balance_list[1]["current_balance"] == -400
+
+def test_create_new_spending_percentage_custom(
+    client: TestClient,
+    some_group_members: list[schemas.UserCredentials],
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_category_custom: schemas.Category,
+):
+    response = client.post(
+        url="/unique-spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_id": some_category_custom.id,
+            "strategy_data":[
+            {
+                "user_id": some_group_members[0].id,
+                "value": 230
+            },
+            {
+                "user_id": some_group_members[1].id,
+                "value": 270
+            }]
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    assert response_body["category_id"] == some_category_custom.id
+
+
+    balances_response = client.get(
+        url=f"/group/{some_group.id}/balance",
+        headers={"x-user": some_group_members[0].jwt},
+    )
+
+
+    balance_list = balances_response.json()
+    balance_list.sort(key=lambda x: x["user_id"])
+
+    assert balance_list[0]["current_balance"] == 270
+    assert balance_list[1]["current_balance"] == -270
+    
 def test_create_new_spending_with_non_existant_category(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
@@ -682,7 +771,7 @@ def some_category(
             "name": "cafe",
             "description": "really long description 1234",
             "group_id": some_group.id,
-            "strategy": "a cool strategy",
+            "strategy": "EQUALPARTS",
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -690,6 +779,52 @@ def some_category(
     assert response.status_code == HTTPStatus.CREATED
     response_body = response.json()
     assert response_body["name"] == "cafe"
+    assert response_body["group_id"] == some_group.id
+    return schemas.Category(**response_body)
+
+@pytest.fixture
+def some_category_percentage(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/category",
+        json={
+            "name": "servicios",
+            "description": "really long description 1234",
+            "group_id": some_group.id,
+            "strategy": "PERCENTAGE",
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert response_body["name"] == "servicios"
+    assert response_body["group_id"] == some_group.id
+    return schemas.Category(**response_body)
+
+@pytest.fixture
+def some_category_custom(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/category",
+        json={
+            "name": "comida",
+            "description": "really long description 1234",
+            "group_id": some_group.id,
+            "strategy": "CUSTOM",
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert response_body["name"] == "comida"
     assert response_body["group_id"] == some_group.id
     return schemas.Category(**response_body)
 
@@ -709,8 +844,7 @@ def test_category_modify_name(
         json={
             "name": "nuevo nombre categoria",
             "description": "otra descripcion",
-            # TODO: move strategy to enums
-            "strategy": "equitativo?",
+            "strategy": "EQUALPARTS",
         },
         headers={"x-user": some_credentials.jwt},
     )

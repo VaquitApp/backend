@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import Optional, Union
+from typing import Optional, Union, Dict, List
+from typing_extensions import TypedDict
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -88,9 +89,23 @@ class Group(GroupBase):
 
 
 ################################################
-# UNIQUE SPENDINGS
+# STRATEGY
 ################################################
 
+class Strategy(StrEnum):
+    EQUALPARTS = auto()
+    PERCENTAGE = auto()
+    CUSTOM = auto()
+
+
+class Distribution(TypedDict):
+    user_id: int
+    value: float
+
+
+################################################
+# SPENDINGS
+################################################
 
 class UniqueSpendingBase(BaseModel):
     amount: int
@@ -99,10 +114,8 @@ class UniqueSpendingBase(BaseModel):
     group_id: int
     category_id: int
 
-
 class UniqueSpendingCreate(UniqueSpendingBase):
-    pass
-
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 class UniqueSpending(UniqueSpendingBase):
     id: int
@@ -124,7 +137,7 @@ class InstallmentSpendingBase(BaseModel):
 
 
 class InstallmentSpendingCreate(InstallmentSpendingBase):
-    pass
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 
 class InstallmentSpending(InstallmentSpendingBase):
@@ -147,7 +160,7 @@ class RecurringSpendingBase(BaseModel):
 
 
 class RecurringSpendingCreate(RecurringSpendingBase):
-    pass
+    strategy_data: Optional[List[Distribution]] = Field(None)
 
 
 class RecurringSpendingPut(RecurringSpendingBase):
