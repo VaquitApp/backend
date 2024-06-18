@@ -51,6 +51,7 @@ class Category(Base):
     name = Column(String)
     description = Column(String)
     strategy = Column(Enum(Strategy))
+    is_archived = Column(Boolean, default=False)
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 

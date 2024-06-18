@@ -55,7 +55,7 @@ def get_category_by_id(db: Session, id: int):
 
 
 def delete_category(db: Session, category: models.Category):
-    db.delete(category)
+    category.is_archived = True
     db.commit()
     return category
 
@@ -66,6 +66,13 @@ def update_category(
     category.name = category_update.name
     category.description = category_update.description
     category.strategy = category_update.strategy
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def update_category_status(db: Session, category: models.Category, status: bool):
+    category.is_archived = status
     db.commit()
     db.refresh(category)
     return category
