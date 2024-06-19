@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Header
 
@@ -136,27 +136,32 @@ def login_google_signin(data: schemas.UserGoogleCredentials, db: DbDependency):
 def check_group_is_unarchived(group: models.Group):
     if group.is_archived:
         raise HTTPException(
-            status_code=HTTPStatus.NOT_ACCEPTABLE,
+            status_code=HTTPStatus.BAD_REQUEST,
             detail="El grupo esta archivado, no se pueden realizar modificaciones",
         )
 
 
-def user_id_in_group(user_id: int, group: models.Group) -> bool:
-    return any(member.id == user_id for member in group.members)
+def user_id_in_group(db: Session, user_id: int, group: models.Group) -> bool:
+    members = crud.get_active_members(db, group)
+    return any(member.id == user_id for member in members)
 
 
-def check_group_exists_and_user_is_member(user_id: int, group: models.Group):
+def check_group_exists_and_user_is_member(
+    db: Session, user_id: int, group: models.Group
+):
     # If group does not exist or user is not in group
-    if group is None or not user_id_in_group(user_id, group):
+    if group is None or not user_id_in_group(db, user_id, group):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
         )
 
 
-def check_group_exists_and_user_is_owner(user_id: int, group: models.Group):
+def check_group_exists_and_user_is_owner(
+    db: Session, user_id: int, group: models.Group
+):
     # If group does not exist or user is not in group
     if group is None or (
-        group.owner_id != user_id and not user_id_in_group(user_id, group)
+        group.owner_id != user_id and not user_id_in_group(db, user_id, group)
     ):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Grupo inexistente"
@@ -181,7 +186,7 @@ def update_group(
 ):
     group_to_update = crud.get_group_by_id(db, put_group.id)
 
-    check_group_exists_and_user_is_owner(user.id, group_to_update)
+    check_group_exists_and_user_is_owner(db, user.id, group_to_update)
     check_group_is_unarchived(group_to_update)
 
     return crud.update_group(db, group_to_update, put_group)
@@ -196,7 +201,7 @@ def list_groups(db: DbDependency, user: UserDependency):
 def get_group_by_id(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return group
 
@@ -220,33 +225,73 @@ def add_user_to_group(
 
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
-    if user_id_in_group(user_to_add.id, group):
+    if user_id_in_group(db, user_to_add.id, group):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"El usuario ya es miembro del grupo {group.name}",
         )
 
-    group = crud.add_user_to_group(db, user_to_add, group)
+    if user_to_add.id in list(m.id for m in group.members):
+        crud.readd_user_to_group(db, user_to_add, group)
+    else:
+        group = crud.add_user_to_group(db, user_to_add, group)
 
-    return group.members
+    return crud.get_active_members(db, group)
 
 
 @app.get("/group/{group_id}/member")
 def list_group_members(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
-    return group.members
+    return crud.get_active_members(db, group)
+
+
+@app.delete("/group/{group_id}/member")
+def kick_from_group(
+    db: DbDependency, user: UserDependency, group_id: int, user_id: Optional[int] = None
+):
+    group = crud.get_group_by_id(db, group_id)
+
+    if user_id is None or user_id == user.id:
+        user_id = user.id
+    else:
+        # Check caller is owner
+        check_group_exists_and_user_is_owner(db, user.id, group)
+
+    if user_id == group.owner_id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="El dueño del grupo no puede abandonarlo",
+        )
+
+    # Check user to kick is in the group
+    check_group_exists_and_user_is_member(db, user_id, group)
+
+    user_balance = crud.get_user_balance(db, user_id, group_id)
+
+    # The user is a member, so the balance should exist
+    assert user_balance is not None
+
+    if user_balance.current_balance != 0:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="El usuario tiene deudas pendientes",
+        )
+
+    crud.leave_group(db, user_balance)
+
+    return {"detail": "El usuario abandonó el grupo correctamente"}
 
 
 @app.put("/group/{group_id}/archive", status_code=HTTPStatus.OK)
 def archive_group(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
 
     archived_group = crud.update_group_status(db, group, True)
     return {"detail": f"Grupo {archived_group.name} archivado correctamente"}
@@ -256,7 +301,7 @@ def archive_group(db: DbDependency, user: UserDependency, group_id: int):
 def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
 
     archived_group = crud.update_group_status(db, group, False)
     return {"detail": f"Grupo {archived_group.name} desarchivado correctamente"}
@@ -265,13 +310,21 @@ def unarchive_group(db: DbDependency, user: UserDependency, group_id: int):
 @app.get("/group/{group_id}/balance")
 def list_group_balances(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     return crud.get_balances_by_group_id(db, group_id)
 
 
 ################################################
 # CATEGORIES
 ################################################
+
+
+def check_category_is_unarchived(category: models.Category):
+    if category.is_archived:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="La categoria esta archivada, no se pueden realizar modificaciones",
+        )
 
 
 @app.post("/category", status_code=HTTPStatus.CREATED)
@@ -281,7 +334,7 @@ def create_category(
     user: UserDependency,
 ):
     group = crud.get_group_by_id(db, category.group_id)
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
     return crud.create_category(db, category)
 
@@ -294,7 +347,7 @@ def get_category(db: DbDependency, user: UserDependency, category_id: int):
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
     group = crud.get_group_by_id(db, category.group_id)
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     return category
 
 
@@ -311,40 +364,65 @@ def update_category(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
     group = crud.get_group_by_id(db, category.group_id)
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
     return crud.update_category(db, category, category_update)
 
 
-@app.delete("/category/{category_id}")
-def delete_category(db: DbDependency, user: UserDependency, category_id: int):
+@app.put("/category/{category_id}/is_archived")
+def update_category_status(
+    new_status: schemas.CategoryStatusUpdate,
+    db: DbDependency,
+    user: UserDependency,
+    category_id: int,
+):
     category = crud.get_category_by_id(db, category_id)
     if category is None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
     group = crud.get_group_by_id(db, category.group_id)
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
-    return crud.delete_category(db, category)
+    return crud.update_category_status(db, category, new_status.is_archived)
 
 
 @app.get("/group/{group_id}/category")
 def list_group_categories(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     categories = crud.get_categories_by_group_id(db, group_id)
     return categories
+
+def check_strategy_data(group: models.Group, category: models.Category, strategy_data, spending_amount: int, db):
+    if category.strategy == schemas.Strategy.EQUALPARTS and strategy_data:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="El tipo de estrategia seleccionado no admite el campo 'strategy_data'"
+        )
+    
+    if strategy_data:
+        if any([not user_id_in_group(db, data['user_id'], group) for data in strategy_data]):
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND, detail=f"El usuario no ha sido encontrado{strategy_data}"
+            )
+
+        if category.strategy == schemas.Strategy.PERCENTAGE and sum([data['value'] for data in strategy_data]) != 100 or \
+            category.strategy == schemas.Strategy.CUSTOM and sum([data['value'] for data in strategy_data]) != spending_amount:
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST, detail="La distribucion es incorrecta"
+            )
+        
 
 ################################################
 # ALL SPENDINGS
 ################################################
 
+
 @app.get("/group/{group_id}/spending")
-def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
+def list_group_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_all_spendings_by_group_id(db, group_id)
 
@@ -360,7 +438,7 @@ def create_unique_spending(
 ):
     group = crud.get_group_by_id(db, spending.group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
@@ -368,15 +446,15 @@ def create_unique_spending(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
-
-    return crud.create_unique_spending(db, spending, user.id)
-
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
+    check_category_is_unarchived(category)
+    return crud.create_unique_spending(db, spending, user.id, category.strategy)
 
 @app.get("/group/{group_id}/unique-spending")
 def list_group_unique_spendings(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_unique_spendings_by_group_id(db, group_id)
 
@@ -392,14 +470,16 @@ def create_installment_spending(
 ):
     group = crud.get_group_by_id(db, spending.group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
     if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
+    check_category_is_unarchived(category)
 
     res = []
 
@@ -407,21 +487,24 @@ def create_installment_spending(
     amount_of_installments = spending.amount_of_installments
     spending_date = spending.date
     for i in range(amount_of_installments):
-        spending.description = f"{spending_description} | cuota {i+1}/{amount_of_installments}"
-        spending.date = spending_date + timedelta(days=(30*i))
-        res.append(crud.create_installment_spending(db, spending, user.id, i+1))        
+        spending.description = (
+            f"{spending_description} | cuota {i+1}/{amount_of_installments}"
+        )
+        spending.date = spending_date + timedelta(days=(30 * i))
+        res.append(crud.create_installment_spending(db, spending, user.id, i + 1, category.strategy))
 
     return res
 
 
 @app.get("/group/{group_id}/installment-spending")
-def list_group_installment_spendings(db: DbDependency, user: UserDependency, group_id: int):
+def list_group_installment_spendings(
+    db: DbDependency, user: UserDependency, group_id: int
+):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_installment_spendings_by_group_id(db, group_id)
-
 
 
 ################################################
@@ -435,25 +518,31 @@ def create_recurring_spending(
 ):
     group = crud.get_group_by_id(db, spending.group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     check_group_is_unarchived(group)
 
     category = crud.get_category_by_id(db, spending.category_id)
+    check_strategy_data(group, category, spending.strategy_data, spending.amount, db)
+
     if category is None or category.group_id != spending.group_id:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
         )
 
-    return crud.create_recurring_spending(db, spending, user.id)
+    check_category_is_unarchived(category)
+    return crud.create_recurring_spending(db, spending, user.id, category.strategy)
 
 
 @app.get("/group/{group_id}/recurring-spending")
-def list_group_recurring_spendings(db: DbDependency, user: UserDependency, group_id: int):
+def list_group_recurring_spendings(
+    db: DbDependency, user: UserDependency, group_id: int
+):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_recurring_spendings_by_group_id(db, group_id)
+
 
 @app.put("/recurring-spending/{recurring_spending_id}")
 def put_recurring_spendings(
@@ -463,7 +552,9 @@ def put_recurring_spendings(
     put_recurring_spending: schemas.RecurringSpendingPut,
 ):
 
-    db_recurring_spending = crud.get_recurring_spendings_by_id(db, recurring_spending_id)
+    db_recurring_spending = crud.get_recurring_spendings_by_id(
+        db, recurring_spending_id
+    )
 
     if db_recurring_spending is None:
         raise HTTPException(
@@ -472,10 +563,12 @@ def put_recurring_spendings(
 
     group = crud.get_group_by_id(db, db_recurring_spending.group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     check_group_is_unarchived(group)
 
-    return crud.put_recurring_spendings(db, db_recurring_spending, put_recurring_spending)
+    return crud.put_recurring_spendings(
+        db, db_recurring_spending, put_recurring_spending
+    )
 
 
 ################################################
@@ -490,9 +583,9 @@ def create_payment(
     group = crud.get_group_by_id(db, payment.group_id)
 
     # Check creator, sender, and receiver are members of the group
-    check_group_exists_and_user_is_member(user.id, group)
-    check_group_exists_and_user_is_member(payment.from_id, group)
-    check_group_exists_and_user_is_member(payment.to_id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
+    check_group_exists_and_user_is_member(db, payment.from_id, group)
+    check_group_exists_and_user_is_member(db, payment.to_id, group)
 
     if payment.from_id == payment.to_id:
         raise HTTPException(
@@ -509,11 +602,36 @@ def create_payment(
     return crud.create_payment(db, payment)
 
 
+@app.post("/payment/{payment_id}/confirm", status_code=HTTPStatus.OK)
+def confirm_payment(db: DbDependency, user: UserDependency, payment_id: int):
+
+    payment = crud.get_payment_by_id(db, payment_id)
+    if payment is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"No se consiguió el pago.",
+        )
+
+    if payment.confirmed:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Este pago ya fue confirmado.",
+        )
+
+    if payment.to_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"Solo el receptor del pago puede confirmarlo.",
+        )
+
+    return crud.confirm_payment(db, payment)
+
+
 @app.get("/payment")
 def list_payments(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_payments_by_group_id(db, group_id)
 
@@ -522,7 +640,7 @@ def list_payments(db: DbDependency, user: UserDependency, group_id: int):
 def list_group_payments(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_payments_by_group_id(db, group_id)
 
@@ -533,15 +651,21 @@ def list_group_payments(db: DbDependency, user: UserDependency, group_id: int):
 
 
 @app.post("/budget", status_code=HTTPStatus.CREATED)
-def create_budget(
-    spending: schemas.BudgetCreate, db: DbDependency, user: UserDependency
-):
-    group = crud.get_group_by_id(db, spending.group_id)
+def create_budget(budget: schemas.BudgetCreate, db: DbDependency, user: UserDependency):
+    group = crud.get_group_by_id(db, budget.group_id)
 
-    check_group_exists_and_user_is_owner(user.id, group)
+    check_group_exists_and_user_is_owner(db, user.id, group)
     check_group_is_unarchived(group)
 
-    return crud.create_budget(db, spending)
+    category = crud.get_category_by_id(db, budget.category_id)
+    if category is None or category.group_id != budget.group_id:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Categoria inexistente"
+        )
+
+    check_category_is_unarchived(category)
+
+    return crud.create_budget(db, budget)
 
 
 @app.get("/budget/{budget_id}")
@@ -566,8 +690,12 @@ def put_budget(
 
     group = crud.get_group_by_id(db, db_budget.group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
     check_group_is_unarchived(group)
+
+    category = crud.get_category_by_id(db, db_budget.category_id)
+
+    check_category_is_unarchived(category)
 
     return crud.put_budget(db, db_budget, put_budget)
 
@@ -576,7 +704,7 @@ def put_budget(
 def list_group_budgets(db: DbDependency, user: UserDependency, group_id: int):
     group = crud.get_group_by_id(db, group_id)
 
-    check_group_exists_and_user_is_member(user.id, group)
+    check_group_exists_and_user_is_member(db, user.id, group)
 
     return crud.get_budgets_by_group_id(db, group_id)
 
@@ -612,13 +740,13 @@ def send_invite(
     invite.receiver_id = receiver.id
 
     target_group = crud.get_group_by_id(db, invite.group_id)
-    check_group_exists_and_user_is_owner(user.id, target_group)
+    check_group_exists_and_user_is_owner(db, user.id, target_group)
     check_group_is_unarchived(target_group)
 
-    if user_id_in_group(receiver.id, target_group):
+    if user_id_in_group(db, receiver.id, target_group):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
-            detail=f"El usuario ya es miembro del equipo {target_group.name}",
+            detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
     token = uuid4()
@@ -664,13 +792,17 @@ def accept_invite(db: DbDependency, user: UserDependency, invite_token: str):
             detail="No se puede agregar un nuevo miembro a este grupo.",
         )
 
-    if user_id_in_group(user.id, target_group):
+    if user_id_in_group(db, user.id, target_group):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"El usuario ya es miembro del grupo {target_group.name}",
         )
 
-    crud.add_user_to_group(db, user, target_group)
+    if user.id in list(m.id for m in target_group.members):
+        crud.readd_user_to_group(db, user, target_group)
+    else:
+        crud.add_user_to_group(db, user, target_group)
+
     return crud.update_invite_status(db, target_invite, schemas.InviteStatus.ACCEPTED)
 
 
@@ -694,7 +826,7 @@ def send_payment_reminder(
             detail="No se encontro el usuario receptor.",
         )
     group = crud.get_group_by_id(db, payment_reminder.group_id)
-    check_group_exists_and_user_is_member(receiver.id, group)
+    check_group_exists_and_user_is_member(db, receiver.id, group)
     check_group_is_unarchived(group)
     payment_reminder.receiver_id = receiver.id
 

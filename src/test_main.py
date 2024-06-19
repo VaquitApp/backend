@@ -498,6 +498,57 @@ def test_add_user_to_group(
     assert sorted([u["id"] for u in body]) == expected_members
 
 
+def test_leave_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create new user
+    new_user = make_user_credentials(client, "some_random_email@email.com")
+    add_user_to_group(client, some_group.id, new_user.id, some_credentials)
+
+    # Leave group
+    response = client.delete(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": new_user.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK, response.json()
+
+    # GET group members
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": new_user.jwt},
+    )
+    # Fails because user is not in group
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_kick_from_group(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    # Create new user
+    new_user = make_user_credentials(client, "some_random_email@email.com")
+    add_user_to_group(client, some_group.id, new_user.id, some_credentials)
+
+    # Kick
+    response = client.delete(
+        url=f"/group/{some_group.id}/member",
+        params={"user_id": new_user.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # GET group members
+    response = client.get(
+        url=f"/group/{some_group.id}/member",
+        headers={"x-user": new_user.jwt},
+    )
+    # Fails because user is not in group
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 ################################################
 # SPENDINGS
 ################################################
@@ -559,7 +610,96 @@ def test_create_new_spending_with_default_date(
     assert response_body["category_id"] == some_category.id
     assert datetime.datetime.fromisoformat(response_body["date"])
 
+def test_create_new_spending_percentage_category(
+    client: TestClient,
+    some_group_members: list[schemas.UserCredentials],
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_category_percentage: schemas.Category,
+):
+    response = client.post(
+        url="/unique-spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_id": some_category_percentage.id,
+            "strategy_data":[
+            {
+                "user_id": some_group_members[0].id,
+                "value": 20
+            },
+            {
+                "user_id": some_group_members[1].id,
+                "value": 80
+            }]
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    assert response_body["category_id"] == some_category_percentage.id
 
+
+    balances_response = client.get(
+        url=f"/group/{some_group.id}/balance",
+        headers={"x-user": some_group_members[0].jwt},
+    )
+
+
+    balance_list = balances_response.json()
+    balance_list.sort(key=lambda x: x["user_id"])
+
+    assert balance_list[0]["current_balance"] == 400
+    assert balance_list[1]["current_balance"] == -400
+
+def test_create_new_spending_percentage_custom(
+    client: TestClient,
+    some_group_members: list[schemas.UserCredentials],
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_category_custom: schemas.Category,
+):
+    response = client.post(
+        url="/unique-spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_id": some_category_custom.id,
+            "strategy_data":[
+            {
+                "user_id": some_group_members[0].id,
+                "value": 230
+            },
+            {
+                "user_id": some_group_members[1].id,
+                "value": 270
+            }]
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert "id" in response_body
+    assert response_body["group_id"] == some_group.id
+    assert response_body["category_id"] == some_category_custom.id
+
+
+    balances_response = client.get(
+        url=f"/group/{some_group.id}/balance",
+        headers={"x-user": some_group_members[0].jwt},
+    )
+
+
+    balance_list = balances_response.json()
+    balance_list.sort(key=lambda x: x["user_id"])
+
+    assert balance_list[0]["current_balance"] == 270
+    assert balance_list[1]["current_balance"] == -270
+    
 def test_create_new_spending_with_non_existant_category(
     client: TestClient,
     some_credentials: schemas.UserCredentials,
@@ -614,7 +754,7 @@ def test_create_spending_on_archived_group(
         },
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+    assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 ################################################
@@ -736,7 +876,7 @@ def test_create_budget_on_archived_group(
         },
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+    assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 ################################################
@@ -756,7 +896,7 @@ def some_category(
             "name": "cafe",
             "description": "really long description 1234",
             "group_id": some_group.id,
-            "strategy": "a cool strategy",
+            "strategy": "EQUALPARTS",
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -767,24 +907,56 @@ def some_category(
     assert response_body["group_id"] == some_group.id
     return schemas.Category(**response_body)
 
+@pytest.fixture
+def some_category_percentage(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/category",
+        json={
+            "name": "servicios",
+            "description": "really long description 1234",
+            "group_id": some_group.id,
+            "strategy": "PERCENTAGE",
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert response_body["name"] == "servicios"
+    assert response_body["group_id"] == some_group.id
+    return schemas.Category(**response_body)
+
+@pytest.fixture
+def some_category_custom(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+    response = client.post(
+        url="/category",
+        json={
+            "name": "comida",
+            "description": "really long description 1234",
+            "group_id": some_group.id,
+            "strategy": "CUSTOM",
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    response_body = response.json()
+    assert response_body["name"] == "comida"
+    assert response_body["group_id"] == some_group.id
+    return schemas.Category(**response_body)
+
 
 def test_create_new_category(client: TestClient, some_category: schemas.Category):
     # NOTE: test is inside fixture
     pass
-
-
-def test_category_delete(
-    client: TestClient,
-    some_credentials: schemas.UserCredentials,
-    some_category: schemas.Category,
-):
-    response = client.delete(
-        url=f"/category/{some_category.id}",
-        headers={"x-user": some_credentials.jwt},
-    )
-
-    assert response.status_code == HTTPStatus.OK
-    assert response.json() == some_category.model_dump()
 
 
 def test_category_modify_name(
@@ -797,8 +969,7 @@ def test_category_modify_name(
         json={
             "name": "nuevo nombre categoria",
             "description": "otra descripcion",
-            # TODO: move strategy to enums
-            "strategy": "equitativo?",
+            "strategy": "EQUALPARTS",
         },
         headers={"x-user": some_credentials.jwt},
     )
@@ -808,6 +979,32 @@ def test_category_modify_name(
     assert "group_id" in response_body
     assert response_body["name"] == "nuevo nombre categoria"
     assert response_body["description"] == "otra descripcion"
+
+
+def test_archive_category(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_category: schemas.Category,
+):
+    response = client.put(
+        url=f"/category/{some_category.id}/is_archived",
+        json={"is_archived": True},
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK, response.json()
+    response_body = response.json()
+    assert response_body["is_archived"] == True
+
+    response = client.put(
+        url=f"/category/{some_category.id}/is_archived",
+        json={"is_archived": False},
+        headers={"x-user": some_credentials.jwt},
+    )
+
+    assert response.status_code == HTTPStatus.OK, response.json()
+    response_body = response.json()
+    assert response_body["is_archived"] == False
 
 
 ################################################
@@ -1062,6 +1259,50 @@ def test_balance_multiple_members(
         assert balance["current_balance"] == expected_balance
 
 
+def test_spendings_dont_update_kicked_users_balance(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+    some_category: schemas.Category,
+):
+    # Create new user
+    new_user = make_user_credentials(client, "some_random_email@email.com")
+    add_user_to_group(client, some_group.id, new_user.id, some_credentials)
+
+    # Kick
+    response = client.delete(
+        url=f"/group/{some_group.id}/member",
+        params={"user_id": new_user.id},
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post(
+        url="/unique-spending",
+        json={
+            "amount": 500,
+            "description": "bought some féca",
+            "group_id": some_group.id,
+            "category_id": some_category.id,
+        },
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.CREATED
+
+    response = client.get(
+        url=f"/group/{some_group.id}/balance",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.OK
+    balance_list = response.json()
+    assert len(balance_list) == 1
+
+    body = balance_list[0]
+    assert body["user_id"] == some_credentials.id
+    assert body["group_id"] == some_group.id
+    assert body["current_balance"] == 0
+
+
 ################################################
 # PAYMENTS
 ################################################
@@ -1074,14 +1315,9 @@ def some_payment(
     some_other_credentials: schemas.UserCredentials,
     some_group: schemas.Group,
 ):
-    res = client.post(
-        url=f"/group/{some_group.id}/member",
-        json={
-            "user_identifier": some_other_credentials.id,
-        },
-        headers={"x-user": some_credentials.jwt},
+    add_user_to_group(
+        client, some_group.id, some_other_credentials.id, some_credentials
     )
-    assert res.status_code == HTTPStatus.CREATED
 
     response = client.post(
         url="/payment",
@@ -1101,9 +1337,74 @@ def some_payment(
     return schemas.Payment(**response_body)
 
 
+@pytest.fixture
+def some_payment_confirmation(
+    client: TestClient,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment: schemas.Payment,
+):
+    response = client.post(
+        url=f"/payment/{some_payment.id}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    response_body = response.json()
+    assert response.status_code == HTTPStatus.OK
+    assert response_body["confirmed"] == True
+    return schemas.Payment(**response_body)
+
+
 def test_create_payment(some_payment: schemas.Payment):
     # NOTE: test is inside fixture
     pass
+
+
+def test_create_payment_confirmation(some_payment_confirmation: schemas.Payment):
+    # NOTE: test is inside fixture
+    pass
+
+
+def test_confirm_non_existant_payment(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_other_credentials: schemas.UserCredentials,
+    some_group: schemas.Group,
+):
+
+    add_user_to_group(
+        client, some_group.id, some_other_credentials.id, some_credentials
+    )
+
+    response = client.post(
+        url=f"/payment/{123}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_confirm_non_existant_payment(
+    client: TestClient,
+    some_credentials: schemas.UserCredentials,
+    some_payment: schemas.Payment,
+):
+
+    response = client.post(
+        url=f"/payment/{some_payment.id}/confirm",
+        headers={"x-user": some_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_confirm_already_confirmed(
+    client: TestClient,
+    some_other_credentials: schemas.UserCredentials,
+    some_payment_confirmation: schemas.Payment,
+):
+
+    response = client.post(
+        url=f"/payment/{some_payment_confirmation.id}/confirm",
+        headers={"x-user": some_other_credentials.jwt},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 def test_payment_updates_balance(
@@ -1111,9 +1412,10 @@ def test_payment_updates_balance(
     some_credentials: schemas.UserCredentials,
     some_other_credentials: schemas.UserCredentials,
     some_payment: schemas.Payment,
+    some_payment_confirmation: schemas.Payment,
 ):
     response = client.get(
-        url=f"/group/{some_payment.group_id}/balance",
+        url=f"/group/{some_payment_confirmation.group_id}/balance",
         headers={"x-user": some_credentials.jwt},
     )
     assert response.status_code == HTTPStatus.OK
@@ -1243,4 +1545,4 @@ def test_send_reminder_to_archived_group(
         },
         headers={"x-user": some_credentials.jwt},
     )
-    assert response.status_code == HTTPStatus.NOT_ACCEPTABLE
+    assert response.status_code == HTTPStatus.BAD_REQUEST

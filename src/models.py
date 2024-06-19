@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Float,
     String,
     Boolean,
     UniqueConstraint,
@@ -14,7 +15,7 @@ from sqlalchemy import (
     UUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from src.schemas import InviteStatus
+from src.schemas import InviteStatus, Strategy
 from src.database import Base
 
 
@@ -66,10 +67,11 @@ class Category(Base):
     group_id = Column(ForeignKey("groups.id"))
     name = Column(String)
     description = Column(String)
-    # TODO: move strategy to enums
-    strategy = Column(String)
+    strategy = Column(Enum(Strategy))
+    is_archived = Column(Boolean, default=False)
 
     __table_args__ = (UniqueConstraint("group_id", "name"),)
+
 
 class UniqueSpending(Base):
     __tablename__ = "unique_spendings"
@@ -80,6 +82,7 @@ class UniqueSpending(Base):
     category_id = Column(ForeignKey("categories.id"))
     amount = Column(Integer)
     description = Column(String)
+    strategy_data = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
@@ -96,6 +99,7 @@ class InstallmentSpending(Base):
     current_installment = Column(Integer)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
+
 class RecurringSpending(Base):
     __tablename__ = "recurring_spendings"
 
@@ -103,7 +107,7 @@ class RecurringSpending(Base):
     owner_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
     category_id = Column(ForeignKey("categories.id"))
-    amount = Column(Integer)
+    amount = Column(Float)
     description = Column(String)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
@@ -116,6 +120,7 @@ class Payment(Base):
     from_id = Column(ForeignKey("users.id"))
     to_id = Column(ForeignKey("users.id"))
     amount = Column(Integer)
+    confirmed = Column(Boolean, default=False)
     date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
@@ -150,6 +155,7 @@ class Balance(Base):
     user_id = Column(ForeignKey("users.id"))
     group_id = Column(ForeignKey("groups.id"))
     current_balance = Column(Integer, default=0)
+    left = Column(Boolean, default=False)
 
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
 
